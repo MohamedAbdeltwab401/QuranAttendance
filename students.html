@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html class="light" dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>الطلبة - مسجد الهدي النبوي</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+        darkMode: "class",
+        theme: {
+            extend: {
+                colors: {
+                    "primary": "#0B1D3A",
+                    "secondary": "#C9A23A",
+                    "surface": "#F5F6F8",
+                    "surface-container": "#FFFFFF",
+                    "on-surface": "#1a1c1c",
+                    "on-surface-variant": "#44474d",
+                    "outline-variant": "#e2e2e2",
+                    "error": "#BA1A1A",
+                    "success": "#1E7D45",
+                },
+                fontFamily: {
+                    "body-md": ["Cairo", "sans-serif"],
+                    "headline-md": ["Cairo", "sans-serif"],
+                    "label-bold": ["Cairo", "sans-serif"],
+                },
+                fontSize: {
+                    "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+                    "headline-md": ["20px", { lineHeight: "28px", fontWeight: "700" }],
+                    "label-bold": ["12px", { lineHeight: "16px", fontWeight: "700" }],
+                },
+            }
+        }
+    }
+</script>
+<style>
+    body { font-family: 'Cairo', sans-serif; }
+    .modal-backdrop {
+        background: rgba(11, 29, 58, 0.5);
+        backdrop-filter: blur(4px);
+    }
+    .modal-enter { animation: modalIn 0.25s ease-out; }
+    @keyframes modalIn {
+        from { opacity: 0; transform: translateY(20px) scale(0.95); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .toast {
+        position: fixed;
+        bottom: 100px;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: #0B1D3A;
+        color: #fff;
+        padding: 12px 20px;
+        border-radius: 16px;
+        font-size: 14px;
+        font-weight: 600;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .25s, transform .25s;
+        max-width: 90%;
+        text-align: center;
+        z-index: 999;
+    }
+    .toast.error { background: #BA1A1A; }
+    .toast.success { background: #1E7D45; }
+    .toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    .student-item {
+        animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateX(10px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+    .input-shell {
+        background: #F5F6F8;
+        border: none;
+        border-bottom: 2px solid #e2e2e2;
+        border-radius: 12px 12px 0 0;
+        transition: border-color .2s;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+    }
+    .input-shell:focus-within {
+        border-bottom-color: #0B1D3A;
+    }
+    .input-shell.invalid {
+        border-bottom-color: #BA1A1A;
+    }
+    .input-shell input, .input-shell textarea {
+        flex: 1;
+        border: none;
+        background: transparent;
+        outline: none;
+        font-family: 'Cairo', sans-serif;
+        font-size: 15px;
+        color: #0B1D3A;
+        padding: 14px 0;
+        resize: none;
+    }
+    .input-shell input::placeholder, .input-shell textarea::placeholder { color: #44474d; }
+    .error-text {
+        font-size: 12px;
+        color: #BA1A1A;
+        min-height: 16px;
+        display: none;
+    }
+    .error-text.show { display: block; }
+    .menu-popup {
+        position: absolute;
+        left: 8px;
+        top: 100%;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        min-width: 140px;
+        z-index: 50;
+        overflow: hidden;
+        animation: menuIn 0.15s ease-out;
+    }
+    @keyframes menuIn {
+        from { opacity: 0; transform: translateY(-5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .menu-popup button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 12px 16px;
+        text-align: right;
+        font-family: 'Cairo', sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        color: #1a1c1c;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+    }
+    .menu-popup button:hover { background: #F5F6F8; }
+    .menu-popup button.danger { color: #BA1A1A; }
+</style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen pb-[80px]">
+
+<!-- Top App Bar -->
+<header class="bg-surface-container flex justify-between items-center px-4 py-3 w-full sticky top-0 z-40 shadow-sm">
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full overflow-hidden bg-outline-variant flex items-center justify-center">
+            <span class="material-symbols-outlined text-primary text-2xl">person</span>
+        </div>
+        <div class="flex flex-col">
+            <h1 class="text-headline-md font-headline-md text-primary">الطلبة</h1>
+            <p class="text-xs text-on-surface-variant" id="walletLabel">—</p>
+        </div>
+    </div>
+    <div class="flex items-center gap-2">
+        <span class="text-xs bg-secondary/10 text-secondary px-2 py-1 rounded-full font-bold" id="countBadge">0</span>
+    </div>
+</header>
+
+<main class="p-4 max-w-md mx-auto">
+    <!-- Search Bar -->
+    <div class="relative mb-4">
+        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-on-surface-variant">
+            <span class="material-symbols-outlined">search</span>
+        </div>
+        <input id="searchInput" class="block w-full pr-10 pl-10 py-3 border-none rounded-xl bg-surface-container shadow-sm focus:ring-2 focus:ring-primary focus:outline-none text-body-md placeholder:text-on-surface-variant" placeholder="بحث عن طالب..." type="text"/>
+        <button id="clearSearch" class="absolute inset-y-0 left-0 pl-3 flex items-center text-on-surface-variant hover:text-primary hidden">
+            <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+    </div>
+
+    <!-- Add Student Button -->
+    <button id="addBtn" class="w-full bg-secondary text-white py-3 rounded-xl flex items-center justify-center gap-2 mb-6 font-headline-md shadow-md active:scale-95 transition-transform">
+        <span class="material-symbols-outlined">add</span>
+        إضافة طالب
+    </button>
+
+    <!-- Students List -->
+    <div id="studentsList" class="bg-surface-container rounded-2xl shadow-sm overflow-hidden flex flex-col gap-1">
+        <!-- Dynamic content -->
+    </div>
+</main>
+
+<!-- Add/Edit Student Modal -->
+<div id="studentModal" class="fixed inset-0 z-50 hidden items-center justify-center modal-backdrop p-4">
+    <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl modal-enter max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between p-5 border-b border-outline-variant">
+            <h2 id="modalTitle" class="text-headline-md font-headline-md text-primary">إضافة طالب</h2>
+            <button id="closeModal" class="text-on-surface-variant hover:text-primary">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <form id="studentForm" class="p-5 flex flex-col gap-4" novalidate>
+            <div>
+                <label class="text-label-bold text-on-surface mb-1 block">اسم الطالب *</label>
+                <div class="input-shell" id="nameShell">
+                    <input id="studentName" type="text" placeholder="أدخل اسم الطالب" autocomplete="off"/>
+                </div>
+                <span class="error-text" id="nameError">يرجى إدخال اسم الطالب</span>
+            </div>
+            <div class="flex gap-3 mt-2">
+                <button type="button" id="cancelBtn" class="flex-1 bg-surface text-on-surface py-3 rounded-xl font-headline-md border border-outline-variant active:scale-95 transition-transform">
+                    إلغاء
+                </button>
+                <button type="submit" id="saveStudentBtn" class="flex-1 bg-secondary text-white py-3 rounded-xl font-headline-md shadow-md active:scale-95 transition-transform flex items-center justify-center gap-2">
+                    <span id="saveSpinner" class="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin hidden"></span>
+                    <span id="saveLabel">حفظ</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Confirm Delete Modal -->
+<div id="deleteModal" class="fixed inset-0 z-50 hidden items-center justify-center modal-backdrop p-4">
+    <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl modal-enter p-6 text-center">
+        <div class="w-16 h-16 bg-error/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span class="material-symbols-outlined text-error text-3xl">delete</span>
+        </div>
+        <h3 class="text-headline-md font-headline-md text-primary mb-2">حذف الطالب</h3>
+        <p class="text-body-md text-on-surface-variant mb-6" id="deleteMsg">هل أنت متأكد من حذف هذا الطالب؟</p>
+        <div class="flex gap-3">
+            <button id="cancelDelete" class="flex-1 bg-surface text-on-surface py-3 rounded-xl font-headline-md border border-outline-variant active:scale-95 transition-transform">
+                إلغاء
+            </button>
+            <button id="confirmDelete" class="flex-1 bg-error text-white py-3 rounded-xl font-headline-md active:scale-95 transition-transform">
+                حذف
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Bottom Nav Bar -->
+<nav class="bg-primary text-white fixed bottom-0 left-0 w-full z-40 flex justify-around items-center px-2 py-2 rounded-t-xl shadow-[0_-4px_20px_rgba(11,29,58,0.08)]">
+
+  <a class="flex flex-col items-center justify-center text-white/70 hover:text-secondary py-2 px-3" href="dashboard.html">
+      <span class="material-symbols-outlined mb-1">home</span>
+      <span class="text-label-bold font-label-bold">الرئيسية</span>
+  </a>
+  <a class="flex flex-col items-center justify-center text-white/70 hover:text-secondary py-2 px-3" href="attendance.html">
+      <span class="material-symbols-outlined mb-1">calendar_today</span>
+      <span class="text-label-bold font-label-bold">الحضور</span>
+  </a>
+  <a class="flex flex-col items-center justify-center text-secondary font-bold py-2 px-3 scale-95 transition-transform duration-200" href="students.html">
+      <span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">group</span>
+      <span class="text-label-bold font-label-bold">الطلبة</span>
+  </a>
+    <a class="flex flex-col items-center justify-center text-white/70 hover:text-secondary py-2 px-3" href="reports.html">
+        <span class="material-symbols-outlined mb-1">analytics</span>
+        <span class="text-label-bold font-label-bold">التقارير</span>
+    </a>
+</nav>
+
+<script>
+(function () {
+    const WALLETS_KEY = 'masjid_alhadi_wallets';
+    const STUDENTS_PREFIX = 'masjid_alhadi_students_';
+    const ACTIVE_WALLET_KEY = 'masjid_alhadi_active_wallet';
+
+    // Elements
+    const walletLabel = document.getElementById('walletLabel');
+    const countBadge = document.getElementById('countBadge');
+    const searchInput = document.getElementById('searchInput');
+    const clearSearch = document.getElementById('clearSearch');
+    const addBtn = document.getElementById('addBtn');
+    const studentsList = document.getElementById('studentsList');
+    const studentModal = document.getElementById('studentModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const closeModal = document.getElementById('closeModal');
+    const studentForm = document.getElementById('studentForm');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const saveSpinner = document.getElementById('saveSpinner');
+    const saveLabel = document.getElementById('saveLabel');
+    const studentName = document.getElementById('studentName');
+
+    const nameShell = document.getElementById('nameShell');
+    const nameError = document.getElementById('nameError');
+    const deleteModal = document.getElementById('deleteModal');
+    const deleteMsg = document.getElementById('deleteMsg');
+    const cancelDelete = document.getElementById('cancelDelete');
+    const confirmDelete = document.getElementById('confirmDelete');
+    const toast = document.getElementById('toast');
+
+    let currentWalletId = null;
+    let editingStudentId = null;
+    let deletingStudentId = null;
+    let openMenuId = null;
+
+    // ---- Storage helpers ----
+    function getActiveWallet() {
+        try {
+            const wallets = JSON.parse(localStorage.getItem(WALLETS_KEY) || '[]');
+            if (wallets.length === 0) return null;
+            const activeId = localStorage.getItem(ACTIVE_WALLET_KEY);
+            if (activeId) {
+                const found = wallets.find(w => String(w.id) === String(activeId));
+                if (found) return found;
+            }
+            // default to last wallet
+            const last = wallets[wallets.length - 1];
+            localStorage.setItem(ACTIVE_WALLET_KEY, last.id);
+            return last;
+        } catch (e) { return null; }
+    }
+
+    function getStudents(walletId) {
+        try {
+            const raw = localStorage.getItem(STUDENTS_PREFIX + walletId);
+            return raw ? JSON.parse(raw) : [];
+        } catch (e) { return []; }
+    }
+
+    function saveStudents(walletId, list) {
+        localStorage.setItem(STUDENTS_PREFIX + walletId, JSON.stringify(list));
+    }
+
+    // ---- Toast ----
+    function showToast(message, type) {
+        toast.textContent = message;
+        toast.className = 'toast show' + (type ? ' ' + type : '');
+        setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    // ---- Escape HTML ----
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // ---- Get initials for avatar ----
+    function getInitials(name) {
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) return parts[0][0] + parts[1][0];
+        return parts[0][0] || '?';
+    }
+
+    // ---- Render students ----
+    function renderStudents() {
+        if (!currentWalletId) {
+            studentsList.innerHTML = `
+                <div class="p-8 text-center">
+                    <div class="w-16 h-16 bg-error/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <span class="material-symbols-outlined text-error text-3xl">warning</span>
+                    </div>
+                    <h3 class="text-headline-md font-headline-md text-primary mb-2">لا يوجد محفظ نشط</h3>
+                    <p class="text-body-md text-on-surface-variant mb-4">يرجى تسجيل الدخول كمحفظ أولاً</p>
+                    <a href="index.html" class="inline-block bg-secondary text-white px-6 py-2 rounded-xl font-headline-md">الذهاب للتسجيل</a>
+                </div>`;
+            countBadge.textContent = '0';
+            return;
+        }
+
+        const students = getStudents(currentWalletId);
+        const query = searchInput.value.trim().toLowerCase();
+        const filtered = query
+            ? students.filter(s =>
+                s.name.toLowerCase().includes(query) ||
+                (s.phone && s.phone.includes(query)) ||
+                (s.level && s.level.toLowerCase().includes(query)))
+            : students;
+
+        countBadge.textContent = students.length;
+
+        if (students.length === 0) {
+            studentsList.innerHTML = `
+                <div class="p-8 text-center">
+                    <div class="w-20 h-20 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="material-symbols-outlined text-secondary text-4xl">person_add</span>
+                    </div>
+                    <h3 class="text-headline-md font-headline-md text-primary mb-2">لا يوجد طلبة بعد</h3>
+                    <p class="text-body-md text-on-surface-variant">ابدأ بإضافة طالبك الأول</p>
+                </div>`;
+            return;
+        }
+
+        if (filtered.length === 0) {
+            studentsList.innerHTML = `
+                <div class="p-8 text-center">
+                    <div class="w-16 h-16 bg-surface rounded-full flex items-center justify-center mx-auto mb-3">
+                        <span class="material-symbols-outlined text-on-surface-variant text-3xl">search_off</span>
+                    </div>
+                    <h3 class="text-headline-md font-headline-md text-primary mb-2">لا توجد نتائج</h3>
+                    <p class="text-body-md text-on-surface-variant">جرّب كلمة بحث مختلفة</p>
+                </div>`;
+            return;
+        }
+
+        studentsList.innerHTML = filtered.map(s => `
+            <div class="student-item flex items-center justify-between p-4 bg-white hover:bg-surface transition-colors cursor-pointer border-b border-outline-variant last:border-0 relative" data-id="${s.id}">
+                <div class="flex items-center gap-3 flex-1 min-w-0">
+                    <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span class="text-primary font-bold text-sm">${escapeHtml(getInitials(s.name))}</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-body-md font-semibold text-primary truncate">${escapeHtml(s.name)}</div>
+                        <div class="flex items-center gap-2 text-xs text-on-surface-variant mt-0.5">
+                            ${s.level ? `<span class="truncate"><span class="material-symbols-outlined text-xs align-middle">school</span> ${escapeHtml(s.level)}</span>` : ''}
+                            ${s.phone ? `<span class="truncate"><span class="material-symbols-outlined text-xs align-middle">phone</span> ${escapeHtml(s.phone)}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+                <button class="delete-btn text-error hover:text-error/80 p-2 rounded-full hover:bg-error/10 transition-colors" data-id="${s.id}" title="حذف الطالب">
+                    <span class="material-symbols-outlined">delete</span>
+                </button>
+            </div>
+        `).join('');
+
+        // Attach delete button handlers
+        studentsList.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = btn.getAttribute('data-id');
+                openDeleteModal(id);
+            });
+        });
+    }
+
+
+
+    // ---- Modal handlers ----
+    function openAddModal() {
+        editingStudentId = null;
+        modalTitle.textContent = 'إضافة طالب';
+        saveLabel.textContent = 'حفظ';
+        studentForm.reset();
+        nameShell.classList.remove('invalid');
+        nameError.classList.remove('show');
+        studentModal.classList.remove('hidden');
+        studentModal.classList.add('flex');
+        setTimeout(() => studentName.focus(), 100);
+    }
+
+    function openEditModal(id) {
+        const students = getStudents(currentWalletId);
+        const student = students.find(s => String(s.id) === String(id));
+        if (!student) return;
+        editingStudentId = id;
+        modalTitle.textContent = 'تعديل بيانات الطالب';
+        saveLabel.textContent = 'تحديث';
+        studentName.value = student.name || '';
+        studentPhone.value = student.phone || '';
+        studentLevel.value = student.level || '';
+        studentNotes.value = student.notes || '';
+        nameShell.classList.remove('invalid');
+        nameError.classList.remove('show');
+        studentModal.classList.remove('hidden');
+        studentModal.classList.add('flex');
+        setTimeout(() => studentName.focus(), 100);
+    }
+
+    function closeStudentModal() {
+        studentModal.classList.add('hidden');
+        studentModal.classList.remove('flex');
+        editingStudentId = null;
+    }
+
+    function openDeleteModal(id) {
+        const students = getStudents(currentWalletId);
+        const student = students.find(s => String(s.id) === String(id));
+        if (!student) return;
+        deletingStudentId = id;
+        deleteMsg.textContent = `هل أنت متأكد من حذف الطالب "${student.name}"؟`;
+        deleteModal.classList.remove('hidden');
+        deleteModal.classList.add('flex');
+    }
+
+    function closeDeleteModal() {
+        deleteModal.classList.add('hidden');
+        deleteModal.classList.remove('flex');
+        deletingStudentId = null;
+    }
+
+    // ---- Form submit ----
+    studentForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = studentName.value.trim();
+        if (name.length === 0) {
+            nameShell.classList.add('invalid');
+            nameError.classList.add('show');
+            return;
+        }
+
+        saveSpinner.classList.remove('hidden');
+        saveLabel.textContent = editingStudentId ? 'جاري التحديث...' : 'جاري الحفظ...';
+
+        setTimeout(() => {
+            const students = getStudents(currentWalletId);
+            const data = {
+                name: name,
+            };
+
+            if (editingStudentId) {
+                const idx = students.findIndex(s => String(s.id) === String(editingStudentId));
+                if (idx !== -1) {
+                    students[idx] = { ...students[idx], ...data, updatedAt: Date.now() };
+                }
+                showToast('تم تحديث بيانات الطالب', 'success');
+            } else {
+                students.push({
+                    id: Date.now(),
+                    ...data,
+                    createdAt: Date.now()
+                });
+                showToast('تمت إضافة الطالب بنجاح', 'success');
+            }
+
+            saveStudents(currentWalletId, students);
+            renderStudents();
+            saveSpinner.classList.add('hidden');
+            saveLabel.textContent = 'حفظ';
+            closeStudentModal();
+        }, 400);
+    });
+
+    studentName.addEventListener('input', () => {
+        if (studentName.value.trim().length > 0) {
+            nameShell.classList.remove('invalid');
+            nameError.classList.remove('show');
+        }
+    });
+
+    // ---- Delete confirm ----
+    confirmDelete.addEventListener('click', () => {
+        if (!deletingStudentId) return;
+        const students = getStudents(currentWalletId).filter(s => String(s.id) !== String(deletingStudentId));
+        saveStudents(currentWalletId, students);
+        renderStudents();
+        closeDeleteModal();
+        showToast('تم حذف الطالب', 'success');
+    });
+
+    // ---- Event listeners ----
+    addBtn.addEventListener('click', openAddModal);
+    closeModal.addEventListener('click', closeStudentModal);
+    cancelBtn.addEventListener('click', closeStudentModal);
+    cancelDelete.addEventListener('click', closeDeleteModal);
+
+    studentModal.addEventListener('click', (e) => {
+        if (e.target === studentModal) closeStudentModal();
+    });
+    deleteModal.addEventListener('click', (e) => {
+        if (e.target === deleteModal) closeDeleteModal();
+    });
+
+    searchInput.addEventListener('input', () => {
+        clearSearch.classList.toggle('hidden', searchInput.value.length === 0);
+        renderStudents();
+    });
+    clearSearch.addEventListener('click', () => {
+        searchInput.value = '';
+        clearSearch.classList.add('hidden');
+        renderStudents();
+    });
+
+
+
+    // ---- Init ----
+    const wallet = getActiveWallet();
+    if (wallet) {
+        currentWalletId = wallet.id;
+        walletLabel.textContent = `محفظ: ${wallet.name}`;
+    }
+    renderStudents();
+})();
+</script>
+</body>
+</html>
+

@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>لوحة التحكم - مسجد الهدي النبوي</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<script>
+tailwind.config = {
+    darkMode: "class",
+    theme: {
+        extend: {
+            colors: {
+                "primary": "#0B1D3A",
+                "primary-container": "#0b1d3a",
+                "on-primary": "#ffffff",
+                "secondary": "#C9A23A",
+                "secondary-container": "#fdd265",
+                "on-secondary-container": "#755900",
+                "surface": "#F5F6F8",
+                "surface-container": "#FFFFFF",
+                "surface-container-low": "#f3f3f4",
+                "surface-container-highest": "#e2e2e2",
+                "on-surface": "#1a1c1c",
+                "on-surface-variant": "#44474d",
+                "outline-variant": "#e2e2e2",
+                "error": "#BA1A1A",
+                "error-container": "#ffdad6",
+                "success": "#1E7D45",
+                "success-container": "#d4f5dd",
+            },
+            fontFamily: {
+                "body": ["Cairo", "sans-serif"],
+            },
+            fontSize: {
+                "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+                "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+                "headline-md": ["20px", { lineHeight: "28px", fontWeight: "700" }],
+                "headline-lg": ["24px", { lineHeight: "32px", fontWeight: "700" }],
+                "headline-xl": ["28px", { lineHeight: "36px", fontWeight: "800" }],
+                "label-bold": ["12px", { lineHeight: "16px", fontWeight: "700" }],
+            },
+        }
+    }
+}
+</script>
+<style>
+    body { font-family: 'Cairo', sans-serif; background-color: #F5F6F8; }
+    .islamic-pattern {
+        background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23C9A23A' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    .stat-card { transition: all 0.3s ease; }
+    .stat-card:hover { transform: translateY(-4px); }
+    .fade-in { animation: fadeIn 0.5s ease both; }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .progress-ring { transition: stroke-dashoffset 0.8s ease; }
+    .empty-state { animation: floaty 3s ease-in-out infinite; }
+    @keyframes floaty {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
+    }
+    .menu-item { transition: all 0.2s ease; }
+    .menu-item:hover { background: #f3f3f4; }
+</style>
+</head>
+<body class="text-on-surface antialiased min-h-screen islamic-pattern flex flex-col md:flex-row relative pb-20 md:pb-0">
+
+<!-- Top App Bar (Mobile) -->
+<header class="md:hidden bg-surface-container flex justify-between items-center px-4 py-3 w-full sticky top-0 shadow-sm z-40">
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+            <span class="material-symbols-outlined text-primary text-2xl" id="headerIcon">person</span>
+        </div>
+        <div>
+            <h1 class="text-headline-md font-bold text-primary leading-tight" id="headerTitle">لوحة التحكم</h1>
+            <p class="text-xs text-on-surface-variant leading-tight" id="headerSubtitle">—</p>
+        </div>
+    </div>
+    <button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface transition-colors relative" id="notifBtn">
+        <span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+        <span class="absolute top-2 left-2 w-2 h-2 bg-error rounded-full hidden" id="notifDot"></span>
+    </button>
+</header>
+
+<!-- SideNav Desktop -->
+<nav class="hidden md:flex flex-col bg-surface-container shadow-xl h-screen w-72 rounded-r-xl py-4 z-50 sticky top-0">
+    <div class="px-6 mb-8 flex items-center gap-4">
+        <div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center border-2 border-secondary">
+            <span class="material-symbols-outlined text-primary text-3xl">person</span>
+        </div>
+        <div>
+            <h2 class="text-headline-md font-bold text-primary" id="sideName">—</h2>
+            <p class="text-body-md text-on-surface-variant">محفظ</p>
+            <p class="text-label-bold text-secondary mt-1">مسجد الهدي النبوي</p>
+        </div>
+    </div>
+    <div class="flex-1 overflow-y-auto px-2 space-y-2">
+        <a class="flex items-center gap-3 bg-secondary-container text-on-secondary-container rounded-lg mx-2 px-4 py-3 font-bold" href="dashboard.html">
+            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+            لوحة التحكم
+        </a>
+        <a class="menu-item flex items-center gap-3 text-on-surface-variant mx-2 px-4 py-3 rounded-lg" href="attendance.html">
+            <span class="material-symbols-outlined">how_to_reg</span>
+            الحضور
+        </a>
+        <a class="menu-item flex items-center gap-3 text-on-surface-variant mx-2 px-4 py-3 rounded-lg" href="students.html">
+            <span class="material-symbols-outlined">group</span>
+            الطلبة
+        </a>
+        <a class="menu-item flex items-center gap-3 text-on-surface-variant mx-2 px-4 py-3 rounded-lg" href="reports.html">
+            <span class="material-symbols-outlined">assessment</span>
+            التقارير
+        </a>
+    </div>
+</nav>
+
+<!-- Main Content -->
+<main class="flex-1 flex flex-col w-full max-w-5xl mx-auto px-4 md:px-8 py-6 min-h-screen" id="mainContent">
+    <!-- Content will be injected here -->
+</main>
+
+<!-- Bottom Nav (Mobile) -->
+<nav class="md:hidden bg-surface-container flex justify-around items-center px-2 py-2 rounded-t-xl border-t border-outline-variant shadow-lg fixed bottom-0 left-0 w-full z-50">
+    <a class="flex flex-col items-center justify-center text-secondary font-bold scale-95 w-16 h-14" href="dashboard.html">
+        <span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">home</span>
+        <span class="text-label-bold">الرئيسية</span>
+    </a>
+    <a class="flex flex-col items-center justify-center text-on-surface-variant w-16 h-14" href="attendance.html">
+        <span class="material-symbols-outlined mb-1">calendar_today</span>
+        <span class="text-label-bold">الحضور</span>
+    </a>
+    <a class="flex flex-col items-center justify-center text-on-surface-variant w-16 h-14" href="students.html">
+        <span class="material-symbols-outlined mb-1">group</span>
+        <span class="text-label-bold">الطلبة</span>
+    </a>
+    <a class="flex flex-col items-center justify-center text-on-surface-variant w-16 h-14" href="reports.html">
+        <span class="material-symbols-outlined mb-1">analytics</span>
+        <span class="text-label-bold">التقارير</span>
+    </a>
+</nav>
+
+<script>
+(function () {
+    const WALLETS_KEY = 'masjid_alhadi_wallets';
+    const STUDENTS_PREFIX = 'masjid_alhadi_students_';
+    const ATTENDANCE_PREFIX = 'masjid_alhadi_attendance_';
+    const ACTIVE_WALLET_KEY = 'masjid_alhadi_active_wallet';
+
+    const mainContent = document.getElementById('mainContent');
+    const headerTitle = document.getElementById('headerTitle');
+    const headerSubtitle = document.getElementById('headerSubtitle');
+    const sideName = document.getElementById('sideName');
+
+    // ---- Storage helpers ----
+    function getActiveWallet() {
+        try {
+            const wallets = JSON.parse(localStorage.getItem(WALLETS_KEY) || '[]');
+            if (wallets.length === 0) return null;
+            const activeId = localStorage.getItem(ACTIVE_WALLET_KEY);
+            if (activeId) {
+                const found = wallets.find(w => String(w.id) === String(activeId));
+                if (found) return found;
+            }
+            const last = wallets[wallets.length - 1];
+            localStorage.setItem(ACTIVE_WALLET_KEY, last.id);
+            return last;
+        } catch (e) { return null; }
+    }
+
+    function getStudents(walletId) {
+        try {
+            const raw = localStorage.getItem(STUDENTS_PREFIX + walletId);
+            return raw ? JSON.parse(raw) : [];
+        } catch (e) { return []; }
+    }
+
+    function getAttendance(walletId) {
+        try {
+            const raw = localStorage.getItem(ATTENDANCE_PREFIX + walletId);
+            return raw ? JSON.parse(raw) : [];
+        } catch (e) { return []; }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function getInitials(name) {
+        const parts = (name || '').trim().split(/\s+/);
+        if (parts.length >= 2) return parts[0][0] + parts[1][0];
+        return parts[0][0] || '?';
+    }
+
+    function formatArabicDate(isoDate) {
+        const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+        const days = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+        const d = new Date(isoDate + 'T00:00:00');
+        return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+    }
+
+    function formatShortDate(isoDate) {
+        const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+        const d = new Date(isoDate + 'T00:00:00');
+        return `${d.getDate()} ${months[d.getMonth()]}`;
+    }
+
+    function getTodayISO() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
+    // ---- Render ----
+    function render() {
+        const wallet = getActiveWallet();
+
+        if (!wallet) {
+            renderNoWallet();
+            return;
+        }
+
+        headerSubtitle.textContent = `محفظ: ${wallet.name}`;
+        sideName.textContent = wallet.name;
+
+        const students = getStudents(wallet.id);
+        const attendance = getAttendance(wallet.id);
+        const today = getTodayISO();
+
+        // Today's attendance
+        const todaySession = attendance.find(a => a.date === today);
+        let presentToday = 0;
+        let absentToday = 0;
+        let todayRecords = [];
+
+        if (todaySession && todaySession.records) {
+            Object.entries(todaySession.records).forEach(([sid, status]) => {
+                if (status === 'present') presentToday++;
+                else if (status === 'absent') absentToday++;
+            });
+            todayRecords = students
+                .filter(s => todaySession.records[s.id] !== undefined)
+                .map(s => ({ student: s, status: todaySession.records[s.id] }));
+        }
+
+        // If no session today, count unmarked as absent
+        const unmarkedToday = todaySession ? 0 : students.length;
+
+        // Stats
+        const totalStudents = students.length;
+        const totalSessions = attendance.length;
+        const presentPct = totalStudents > 0 ? Math.round((presentToday / totalStudents) * 100) : 0;
+
+        // Recent sessions (last 5)
+        const recentSessions = attendance
+            .slice()
+            .sort((a, b) => b.date.localeCompare(a.date))
+            .slice(0, 5);
+
+        // Recent students (last 5)
+        const recentStudents = students
+            .slice()
+            .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+            .slice(0, 5);
+
+        mainContent.innerHTML = `
+            <!-- Welcome Section -->
+            <section class="mb-6 md:mb-8 text-center md:text-right flex flex-col items-center md:items-start fade-in">
+                <div class="inline-flex items-center justify-center p-3 rounded-full bg-surface-container shadow-sm border border-outline-variant mb-4 md:hidden">
+                    <span class="material-symbols-outlined text-secondary text-3xl">mosque</span>
+                </div>
+                <h2 class="text-headline-lg md:text-headline-xl text-primary mb-1">السلام عليكم</h2>
+                <h3 class="text-headline-md text-primary font-bold mb-2">${escapeHtml(wallet.name)}</h3>
+                <p class="text-body-md text-secondary bg-secondary/10 inline-block px-3 py-1 rounded-full border border-secondary/20">${formatArabicDate(today)}</p>
+            </section>
+
+            ${totalStudents === 0 ? renderEmptyState() : `
+            <!-- Stats Grid -->
+            <section class="mb-8 fade-in" style="animation-delay: 0.1s">
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="text-headline-md text-primary font-bold">إحصائيات سريعة</h4>
+                    <span class="text-xs text-on-surface-variant bg-surface-container px-2 py-1 rounded-full">اليوم</span>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                    ${renderStatCard('group', 'عدد الطلبة', totalStudents, 'primary', 'bg-primary/10')}
+                    ${renderStatCard('how_to_reg', 'حاضر اليوم', presentToday, 'success', 'bg-success/10')}
+                    ${renderStatCard('person_off', 'غائب اليوم', absentToday + unmarkedToday, 'error', 'bg-error/10')}
+                    ${renderStatCard('event_available', 'جلسات الحضور', totalSessions, 'secondary', 'bg-secondary/10')}
+                </div>
+            </section>
+
+            <!-- Attendance Progress (if today's session exists) -->
+            ${todaySession ? renderTodayProgress(presentToday, absentToday, unmarkedToday, totalStudents, presentPct) : ''}
+
+            <!-- Primary Actions -->
+            <section class="flex flex-col gap-3 mb-8 fade-in" style="animation-delay: 0.2s">
+                <button onclick="location.href='attendance.html'" class="w-full bg-primary text-on-primary py-4 rounded-xl flex items-center justify-center gap-3 shadow-md hover:shadow-lg transition-all active:scale-95 duration-200">
+                    <span class="material-symbols-outlined text-[24px]">${todaySession ? 'edit_calendar' : 'calendar_today'}</span>
+                    <span class="text-body-lg font-bold">${todaySession ? 'تعديل حضور اليوم' : 'أخذ الحضور اليوم'}</span>
+                </button>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    ${renderActionButton('group', 'الطلبة', 'students.html')}
+                    ${renderActionButton('analytics', 'التقارير', 'reports.html')}
+                </div>
+            </section>
+
+            <!-- Two columns: Recent sessions + Recent students -->
+            <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 fade-in" style="animation-delay: 0.3s">
+                ${renderRecentSessions(recentSessions, students)}
+                ${renderRecentStudents(recentStudents)}
+            </section>
+            `}
+        `;
+    }
+
+    function renderStatCard(icon, label, value, color, bgClass) {
+        return `
+            <div class="stat-card bg-surface-container rounded-xl p-4 shadow-sm border-t-2 border-t-${color} flex flex-col items-center justify-center relative overflow-hidden">
+                <div class="w-10 h-10 rounded-full ${bgClass} flex items-center justify-center text-${color} mb-2">
+                    <span class="material-symbols-outlined">${icon}</span>
+                </div>
+                <span class="text-headline-lg text-primary font-bold">${value}</span>
+                <span class="text-label-bold text-on-surface-variant mt-1 text-center">${label}</span>
+            </div>
+        `;
+    }
+
+    function renderTodayProgress(present, absent, unmarked, total, pct) {
+        const circumference = 2 * Math.PI * 36;
+        const offset = circumference - (pct / 100) * circumference;
+        return `
+            <section class="mb-8 fade-in" style="animation-delay: 0.15s">
+                <div class="bg-surface-container rounded-2xl p-5 shadow-sm flex items-center gap-5">
+                    <div class="relative flex-shrink-0">
+                        <svg width="96" height="96" class="-rotate-90">
+                            <circle cx="48" cy="48" r="36" stroke="#e2e2e2" stroke-width="8" fill="none"/>
+                            <circle cx="48" cy="48" r="36" stroke="#1E7D45" stroke-width="8" fill="none"
+                                stroke-dasharray="${circumference}"
+                                stroke-dashoffset="${offset}"
+                                stroke-linecap="round"
+                                class="progress-ring"/>
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                            <span class="text-headline-md text-primary font-bold">${pct}%</span>
+                            <span class="text-[10px] text-on-surface-variant">حضور</span>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <h4 class="text-headline-md text-primary font-bold mb-2">نسبة حضور اليوم</h4>
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="flex items-center gap-2 text-on-surface-variant">
+                                    <span class="w-2 h-2 rounded-full bg-success"></span>
+                                    حاضر
+                                </span>
+                                <span class="font-bold text-primary">${present}</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="flex items-center gap-2 text-on-surface-variant">
+                                    <span class="w-2 h-2 rounded-full bg-error"></span>
+                                    غائب
+                                </span>
+                                <span class="font-bold text-primary">${absent + unmarked}</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="flex items-center gap-2 text-on-surface-variant">
+                                    <span class="w-2 h-2 rounded-full bg-outline-variant"></span>
+                                    لم يُسجَّل
+                                </span>
+                                <span class="font-bold text-primary">${unmarked}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        `;
+    }
+
+    function renderActionButton(icon, label, href) {
+        return `
+            <button onclick="location.href='${href}'" class="w-full bg-surface-container text-primary border border-outline-variant py-4 px-5 rounded-xl flex items-center justify-between shadow-sm hover:border-outline hover:bg-surface-container-low transition-all group">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-secondary group-hover:scale-110 transition-transform">${icon}</span>
+                    <span class="text-body-lg font-semibold">${label}</span>
+                </div>
+                <span class="material-symbols-outlined text-outline-variant rtl:-scale-x-100">arrow_forward_ios</span>
+            </button>
+        `;
+    }
+
+    function renderRecentSessions(sessions, students) {
+        if (sessions.length === 0) {
+            return `
+                <div class="bg-surface-container rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-headline-md text-primary font-bold flex items-center gap-2">
+                            <span class="material-symbols-outlined text-secondary">event_note</span>
+                            آخر الجلسات
+                        </h4>
+                    </div>
+                    <div class="text-center py-6">
+                        <span class="material-symbols-outlined text-4xl text-outline-variant">event_busy</span>
+                        <p class="text-body-md text-on-surface-variant mt-2">لا توجد جلسات حضور بعد</p>
+                        <button onclick="location.href='attendance.html'" class="mt-3 text-secondary text-sm font-bold hover:underline">ابدأ أول جلسة ←</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        const items = sessions.map(s => {
+            let present = 0, absent = 0;
+            if (s.records) {
+                Object.values(s.records).forEach(status => {
+                    if (status === 'present') present++;
+                    else if (status === 'absent') absent++;
+                });
+            }
+            const total = present + absent;
+            const pct = total > 0 ? Math.round((present / total) * 100) : 0;
+            return `
+                <div class="flex items-center justify-between py-3 border-b border-outline-variant last:border-0">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-primary">event</span>
+                        </div>
+                        <div>
+                            <div class="text-body-md font-semibold text-primary">${formatShortDate(s.date)}</div>
+                            <div class="text-xs text-on-surface-variant">${present} حاضر • ${absent} غائب</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-bold ${pct >= 70 ? 'text-success' : pct >= 40 ? 'text-secondary' : 'text-error'}">${pct}%</span>
+                        <span class="material-symbols-outlined text-outline-variant rtl:-scale-x-100">arrow_forward_ios</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="bg-surface-container rounded-2xl p-5 shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-headline-md text-primary font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-secondary">event_note</span>
+                        آخر الجلسات
+                    </h4>
+                    <button onclick="location.href='reports.html'" class="text-secondary text-xs font-bold hover:underline">عرض الكل</button>
+                </div>
+                <div>${items}</div>
+            </div>
+        `;
+    }
+
+    function renderRecentStudents(students) {
+        if (students.length === 0) {
+            return `
+                <div class="bg-surface-container rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-headline-md text-primary font-bold flex items-center gap-2">
+                            <span class="material-symbols-outlined text-secondary">person_add</span>
+                            أحدث الطلبة
+                        </h4>
+                    </div>
+                    <div class="text-center py-6">
+                        <span class="material-symbols-outlined text-4xl text-outline-variant">group_off</span>
+                        <p class="text-body-md text-on-surface-variant mt-2">لا يوجد طلبة بعد</p>
+                        <button onclick="location.href='students.html'" class="mt-3 text-secondary text-sm font-bold hover:underline">أضف طالباً ←</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        const items = students.map(s => `
+            <div class="flex items-center justify-between py-2.5 border-b border-outline-variant last:border-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span class="text-primary font-bold text-xs">${escapeHtml(getInitials(s.name))}</span>
+                    </div>
+                    <div>
+                        <div class="text-body-md font-semibold text-primary leading-tight">${escapeHtml(s.name)}</div>
+                        ${s.level ? `<div class="text-xs text-on-surface-variant">${escapeHtml(s.level)}</div>` : ''}
+                    </div>
+                </div>
+                <span class="material-symbols-outlined text-outline-variant rtl:-scale-x-100">arrow_forward_ios</span>
+            </div>
+        `).join('');
+
+        return `
+            <div class="bg-surface-container rounded-2xl p-5 shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-headline-md text-primary font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-secondary">person_add</span>
+                        أحدث الطلبة
+                    </h4>
+                    <button onclick="location.href='students.html'" class="text-secondary text-xs font-bold hover:underline">عرض الكل</button>
+                </div>
+                <div>${items}</div>
+            </div>
+        `;
+    }
+
+    function renderEmptyState() {
+        return `
+            <section class="mb-8 fade-in">
+                <div class="bg-surface-container rounded-2xl p-8 shadow-sm text-center">
+                    <div class="empty-state inline-flex items-center justify-center w-24 h-24 rounded-full bg-secondary/10 mb-4">
+                        <span class="material-symbols-outlined text-secondary text-5xl">school</span>
+                    </div>
+                    <h3 class="text-headline-md text-primary font-bold mb-2">ابدأ بإضافة طلبتك</h3>
+                    <p class="text-body-md text-on-surface-variant mb-5 max-w-sm mx-auto">
+                        لم تقم بإضافة أي طالب بعد. أضف طلبتك الآن لتتمكن من تسجيل الحضور ومتابعة التقدم.
+                    </p>
+                    <button onclick="location.href='students.html'" class="bg-secondary text-white px-6 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-transform inline-flex items-center gap-2">
+                        <span class="material-symbols-outlined">person_add</span>
+                        إضافة طالب
+                    </button>
+                </div>
+            </section>
+        `;
+    }
+
+    function renderNoWallet() {
+        headerSubtitle.textContent = 'غير مسجل';
+        sideName.textContent = '—';
+        mainContent.innerHTML = `
+            <section class="flex-1 flex items-center justify-center fade-in">
+                <div class="bg-surface-container rounded-2xl p-8 shadow-sm text-center max-w-md w-full">
+                    <div class="empty-state inline-flex items-center justify-center w-24 h-24 rounded-full bg-error/10 mb-4">
+                        <span class="material-symbols-outlined text-error text-5xl">warning</span>
+                    </div>
+                    <h3 class="text-headline-md text-primary font-bold mb-2">لا يوجد محفظ نشط</h3>
+                    <p class="text-body-md text-on-surface-variant mb-5">
+                        يرجى تسجيل الدخول كمحفظ أولاً لبدء استخدام التطبيق
+                    </p>
+                    <button onclick="location.href='index.html'" class="bg-secondary text-white px-6 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-transform inline-flex items-center gap-2">
+                        <span class="material-symbols-outlined">login</span>
+                        تسجيل الدخول
+                    </button>
+                </div>
+            </section>
+        `;
+    }
+
+    // Initial render
+    render();
+
+    // Refresh when page becomes visible (in case data changed in another tab)
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) render();
+    });
+
+    // Storage event for cross-tab sync
+    window.addEventListener('storage', () => render());
+})();
+</script>
+</body>
+</html>
+

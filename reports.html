@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>التقارير - مسجد الهادي النبوي</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<script>
+tailwind.config = {
+    darkMode: "class",
+    theme: {
+        extend: {
+            colors: {
+                "primary": "#0B1D3A",
+                "primary-container": "#0b1d3a",
+                "on-primary": "#ffffff",
+                "secondary": "#C9A23A",
+                "secondary-container": "#fdd265",
+                "on-secondary-container": "#755900",
+                "secondary-fixed-dim": "#ebc156",
+                "surface": "#F5F6F8",
+                "surface-container": "#FFFFFF",
+                "surface-container-low": "#f3f3f4",
+                "surface-container-high": "#e8e8e8",
+                "surface-container-highest": "#e2e2e2",
+                "on-surface": "#1a1c1c",
+                "on-surface-variant": "#44474d",
+                "outline": "#75777e",
+                "outline-variant": "#e2e2e2",
+                "error": "#BA1A1A",
+                "error-container": "#ffdad6",
+                "success": "#1E7D45",
+                "success-container": "#d4f5dd",
+                "background": "#F5F6F8",
+            },
+            fontFamily: { "body": ["Cairo", "sans-serif"] },
+            fontSize: {
+                "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+                "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+                "headline-md": ["20px", { lineHeight: "28px", fontWeight: "700" }],
+                "headline-lg": ["24px", { lineHeight: "32px", fontWeight: "700" }],
+                "headline-xl": ["28px", { lineHeight: "36px", fontWeight: "800" }],
+                "label-bold": ["12px", { lineHeight: "16px", fontWeight: "700" }],
+            },
+        }
+    }
+}
+</script>
+<style>
+    body { font-family: 'Cairo', sans-serif; background-color: #F5F6F8; }
+    .islamic-pattern {
+        background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23C9A23A' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    .stat-card { transition: all 0.3s ease; }
+    .stat-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(11,29,58,0.08); }
+    .fade-in { animation: fadeIn 0.5s ease both; }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .tab-btn { transition: all 0.2s ease; }
+    .tab-btn.active {
+        background: #0B1D3A;
+        color: #fff;
+        box-shadow: 0 4px 12px rgba(11,29,58,0.2);
+    }
+    .empty-state { animation: floaty 3s ease-in-out infinite; }
+    @keyframes floaty {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
+    }
+    .progress-bar { transition: width 0.6s ease; }
+    .menu-item { transition: all 0.2s ease; }
+    .menu-item:hover { background: #f3f3f4; }
+    .session-row:hover { background: #f9f9f9; }
+    .student-row:hover { background: #f9f9f9; }
+    .chip { transition: all 0.15s ease; }
+    .chip:hover { transform: translateY(-1px); }
+    @media print {
+        .no-print { display: none !important; }
+        body { background: #fff; }
+    }
+</style>
+</head>
+<body class="text-on-surface antialiased min-h-screen islamic-pattern flex flex-col md:flex-row relative pb-20 md:pb-0">
+
+<!-- Top App Bar (Mobile) -->
+<header class="md:hidden bg-surface-container flex justify-between items-center px-4 py-3 w-full sticky top-0 shadow-sm z-40">
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+            <span class="material-symbols-outlined text-primary text-2xl">analytics</span>
+        </div>
+        <div>
+            <h1 class="text-headline-md font-bold text-primary leading-tight">التقارير</h1>
+            <p class="text-xs text-on-surface-variant leading-tight" id="headerSubtitle">—</p>
+        </div>
+    </div>
+    <button onclick="exportData()" class="text-primary hover:bg-surface p-2 rounded-full transition-colors no-print" title="تصدير">
+        <span class="material-symbols-outlined">download</span>
+    </button>
+</header>
+
+<!-- SideNav Desktop -->
+<nav class="hidden md:flex flex-col bg-surface-container shadow-xl h-screen w-72 rounded-r-xl py-4 z-50 sticky top-0">
+    <div class="px-6 mb-8 flex items-center gap-4">
+        <div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center border-2 border-secondary">
+            <span class="material-symbols-outlined text-primary text-3xl">person</span>
+        </div>
+        <div>
+            <h2 class="text-headline-md font-bold text-primary" id="sideName">—</h2>
+            <p class="text-body-md text-on-surface-variant">محفظ</p>
+            <p class="text-label-bold text-secondary mt-1">مسجد الهادي النبوي</p>
+        </div>
+    </div>
+    <div class="flex-1 overflow-y-auto px-2 space-y-2">
+        <a class="menu-item flex items-center gap-3 text-on-surface-variant mx-2 px-4 py-3 rounded-lg" href="dashboard.html">
+            <span class="material-symbols-outlined">dashboard</span>
+            لوحة التحكم
+        </a>
+        <a class="menu-item flex items-center gap-3 text-on-surface-variant mx-2 px-4 py-3 rounded-lg" href="attendance.html">
+            <span class="material-symbols-outlined">how_to_reg</span>
+            الحضور
+        </a>
+        <a class="menu-item flex items-center gap-3 text-on-surface-variant mx-2 px-4 py-3 rounded-lg" href="students.html">
+            <span class="material-symbols-outlined">group</span>
+            الطلبة
+        </a>
+        <a class="flex items-center gap-3 bg-secondary-container text-on-secondary-container rounded-lg mx-2 px-4 py-3 font-bold" href="reports.html">
+            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">assessment</span>
+            التقارير
+        </a>
+        <a class="menu-item flex items-center gap-3 text-on-surface-variant mx-2 px-4 py-3 rounded-lg" href="index.html">
+            <span class="material-symbols-outlined">settings</span>
+            الإعدادات
+        </a>
+    </div>
+</nav>
+
+<!-- Main Content -->
+<main class="flex-1 flex flex-col w-full max-w-5xl mx-auto px-4 md:px-8 py-6 min-h-screen" id="mainContent"></main>
+
+<!-- Bottom Nav (Mobile) -->
+<nav class="md:hidden bg-surface-container flex justify-around items-center px-2 py-2 rounded-t-xl border-t border-outline-variant shadow-lg fixed bottom-0 left-0 w-full z-50 no-print">
+    <a class="flex flex-col items-center justify-center text-on-surface-variant w-16 h-14" href="dashboard.html">
+        <span class="material-symbols-outlined mb-1">home</span>
+        <span class="text-label-bold">الرئيسية</span>
+    </a>
+    <a class="flex flex-col items-center justify-center text-on-surface-variant w-16 h-14" href="attendance.html">
+        <span class="material-symbols-outlined mb-1">calendar_today</span>
+        <span class="text-label-bold">الحضور</span>
+    </a>
+    <a class="flex flex-col items-center justify-center text-on-surface-variant w-16 h-14" href="students.html">
+        <span class="material-symbols-outlined mb-1">group</span>
+        <span class="text-label-bold">الطلبة</span>
+    </a>
+    <a class="flex flex-col items-center justify-center text-secondary font-bold scale-95 w-16 h-14" href="reports.html">
+        <span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">analytics</span>
+        <span class="text-label-bold">التقارير</span>
+    </a>
+    <a class="flex flex-col items-center justify-center text-on-surface-variant w-16 h-14" href="index.html">
+        <span class="material-symbols-outlined mb-1">more_horiz</span>
+        <span class="text-label-bold">المزيد</span>
+    </a>
+</nav>
+
+<script>
+(function () {
+    const WALLETS_KEY = 'masjid_alhadi_wallets';
+    const STUDENTS_PREFIX = 'masjid_alhadi_students_';
+    const ATTENDANCE_PREFIX = 'masjid_alhadi_attendance_';
+    const ACTIVE_WALLET_KEY = 'masjid_alhadi_active_wallet';
+
+    const mainContent = document.getElementById('mainContent');
+    const headerSubtitle = document.getElementById('headerSubtitle');
+    const sideName = document.getElementById('sideName');
+
+    let currentWalletId = null;
+    let currentFilter = 'all'; // 'week' | 'month' | 'all'
+    let chartInstance = null;
+
+    // ---- Storage ----
+    function getActiveWallet() {
+        try {
+            const wallets = JSON.parse(localStorage.getItem(WALLETS_KEY) || '[]');
+            if (wallets.length === 0) return null;
+            const activeId = localStorage.getItem(ACTIVE_WALLET_KEY);
+            if (activeId) {
+                const found = wallets.find(w => String(w.id) === String(activeId));
+                if (found) return found;
+            }
+            const last = wallets[wallets.length - 1];
+            localStorage.setItem(ACTIVE_WALLET_KEY, last.id);
+            return last;
+        } catch (e) { return null; }
+    }
+    function getStudents(walletId) {
+        try { const raw = localStorage.getItem(STUDENTS_PREFIX + walletId); return raw ? JSON.parse(raw) : []; }
+        catch (e) { return []; }
+    }
+    function getAttendance(walletId) {
+        try { const raw = localStorage.getItem(ATTENDANCE_PREFIX + walletId); return raw ? JSON.parse(raw) : []; }
+        catch (e) { return []; }
+    }
+    function getTodayISO() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+    function formatArabicDate(isoDate) {
+        const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+        const days = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+        const d = new Date(isoDate + 'T00:00:00');
+        return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+    }
+    function formatShortDate(isoDate) {
+        const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+        const d = new Date(isoDate + 'T00:00:00');
+        return `${d.getDate()} ${months[d.getMonth()]}`;
+    }
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+    function getInitials(name) {
+        const parts = (name || '').trim().split(/\s+/);
+        if (parts.length >= 2) return parts[0][0] + parts[1][0];
+        return parts[0][0] || '?';
+    }
+
+    // ---- Filter logic ----
+    function filterAttendance(attendance, filter) {
+        if (filter === 'all') return attendance;
+        const now = new Date();
+        const cutoff = new Date();
+        if (filter === 'week') cutoff.setDate(now.getDate() - 7);
+        else if (filter === 'month') cutoff.setMonth(now.getMonth() - 1);
+        const cutoffISO = `${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,'0')}-${String(cutoff.getDate()).padStart(2,'0')}`;
+        return attendance.filter(a => a.date >= cutoffISO);
+    }
+
+    // ---- Compute stats ----
+    function computeStats(attendance, students) {
+        let totalPresent = 0, totalAbsent = 0, totalSessions = attendance.length;
+        const studentStats = {}; // { studentId: { present, absent } }
+
+        students.forEach(s => {
+            studentStats[s.id] = { present: 0, absent: 0 };
+        });
+
+        attendance.forEach(session => {
+            if (!session.records) return;
+            Object.entries(session.records).forEach(([sid, status]) => {
+                if (status === 'present') {
+                    totalPresent++;
+                    if (studentStats[sid]) studentStats[sid].present++;
+                } else if (status === 'absent') {
+                    totalAbsent++;
+                    if (studentStats[sid]) studentStats[sid].absent++;
+                }
+            });
+        });
+
+        const totalMarked = totalPresent + totalAbsent;
+        const avgPct = totalMarked > 0 ? Math.round((totalPresent / totalMarked) * 100) : 0;
+
+        // Best/worst session
+        let bestSession = null, worstSession = null;
+        let bestPct = -1, worstPct = 101;
+        attendance.forEach(session => {
+            if (!session.records) return;
+            let p = 0, a = 0;
+            Object.values(session.records).forEach(s => {
+                if (s === 'present') p++;
+                else if (s === 'absent') a++;
+            });
+            const t = p + a;
+            if (t > 0) {
+                const pct = Math.round((p / t) * 100);
+                if (pct > bestPct) { bestPct = pct; bestSession = session; }
+                if (pct < worstPct) { worstPct = pct; worstSession = session; }
+            }
+        });
+
+        // Top student
+        let topStudent = null, topPct = -1;
+        students.forEach(s => {
+            const st = studentStats[s.id];
+            const t = st.present + st.absent;
+            if (t > 0) {
+                const pct = Math.round((st.present / t) * 100);
+                if (pct > topPct) { topPct = pct; topStudent = s; }
+            }
+        });
+
+        return {
+            totalSessions,
+            totalPresent,
+            totalAbsent,
+            avgPct,
+            bestSession,
+            bestPct,
+            worstSession,
+            worstPct,
+            topStudent,
+            topPct,
+            studentStats
+        };
+    }
+
+    // ---- Render ----
+    function render() {
+        const wallet = getActiveWallet();
+        if (!wallet) { renderNoWallet(); return; }
+
+        headerSubtitle.textContent = `محفظ: ${wallet.name}`;
+        sideName.textContent = wallet.name;
+
+        const students = getStudents(wallet.id);
+        const allAttendance = getAttendance(wallet.id);
+        const filtered = filterAttendance(allAttendance, currentFilter);
+
+        if (students.length === 0 || filtered.length === 0) {
+            renderEmpty(students.length === 0 ? 'students' : 'attendance');
+            return;
+        }
+
+        const stats = computeStats(filtered, students);
+
+        mainContent.innerHTML = `
+            <!-- Header -->
+            <section class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 fade-in">
+                <div>
+                    <h2 class="text-headline-lg text-primary font-bold mb-1">التقارير والإحصائيات</h2>
+                    <p class="text-body-md text-on-surface-variant">نظرة شاملة على حضور الطلبة</p>
+                </div>
+                <button onclick="exportData()" class="no-print bg-secondary text-white px-5 py-2.5 rounded-xl font-bold shadow-md active:scale-95 transition-transform flex items-center gap-2 self-start">
+                    <span class="material-symbols-outlined">download</span>
+                    تصدير التقرير
+                </button>
+            </section>
+
+            <!-- Filter Tabs -->
+            <section class="mb-6 fade-in" style="animation-delay: 0.05s">
+                <div class="bg-surface-container rounded-2xl p-2 flex gap-2 shadow-sm">
+                    <button class="tab-btn flex-1 py-2.5 rounded-xl font-bold text-sm ${currentFilter === 'week' ? 'active' : 'text-on-surface-variant hover:bg-surface'}" data-filter="week">
+                        آخر أسبوع
+                    </button>
+                    <button class="tab-btn flex-1 py-2.5 rounded-xl font-bold text-sm ${currentFilter === 'month' ? 'active' : 'text-on-surface-variant hover:bg-surface'}" data-filter="month">
+                        آخر شهر
+                    </button>
+                    <button class="tab-btn flex-1 py-2.5 rounded-xl font-bold text-sm ${currentFilter === 'all' ? 'active' : 'text-on-surface-variant hover:bg-surface'}" data-filter="all">
+                        الكل
+                    </button>
+                </div>
+            </section>
+
+            <!-- Stats Grid -->
+            <section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 fade-in" style="animation-delay: 0.1s">
+                ${renderStatCard('event_available', 'إجمالي الجلسات', stats.totalSessions, 'primary', 'bg-primary/10')}
+                ${renderStatCard('trending_up', 'متوسط الحضور', stats.avgPct + '%', 'success', 'bg-success/10')}
+                ${renderStatCard('how_to_reg', 'إجمالي الحضور', stats.totalPresent, 'success', 'bg-success/10')}
+                ${renderStatCard('person_off', 'إجمالي الغياب', stats.totalAbsent, 'error', 'bg-error/10')}
+            </section>
+
+            <!-- Chart -->
+            <section class="mb-6 fade-in" style="animation-delay: 0.15s">
+                <div class="bg-surface-container rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-headline-md text-primary font-bold flex items-center gap-2">
+                            <span class="material-symbols-outlined text-secondary">show_chart</span>
+                            نسبة الحضور عبر الجلسات
+                        </h4>
+                        <span class="text-xs text-on-surface-variant bg-surface px-2 py-1 rounded-full">${filtered.length} جلسة</span>
+                    </div>
+                    <div class="relative" style="height: 260px;">
+                        <canvas id="attendanceChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Highlights -->
+            <section class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6 fade-in" style="animation-delay: 0.2s">
+                ${stats.bestSession ? `
+                <div class="bg-success/10 border border-success/20 rounded-2xl p-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="material-symbols-outlined text-success">emoji_events</span>
+                        <span class="text-label-bold text-success">أفضل جلسة</span>
+                    </div>
+                    <div class="text-headline-md text-primary font-bold">${stats.bestPct}%</div>
+                    <div class="text-xs text-on-surface-variant mt-1">${formatShortDate(stats.bestSession.date)}</div>
+                </div>` : ''}
+                ${stats.worstSession ? `
+                <div class="bg-error/10 border border-error/20 rounded-2xl p-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="material-symbols-outlined text-error">trending_down</span>
+                        <span class="text-label-bold text-error">أقل جلسة</span>
+                    </div>
+                    <div class="text-headline-md text-primary font-bold">${stats.worstPct}%</div>
+                    <div class="text-xs text-on-surface-variant mt-1">${formatShortDate(stats.worstSession.date)}</div>
+                </div>` : ''}
+                ${stats.topStudent ? `
+                <div class="bg-secondary/10 border border-secondary/20 rounded-2xl p-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="material-symbols-outlined text-secondary">star</span>
+                        <span class="text-label-bold text-secondary">الأكثر التزاماً</span>
+                    </div>
+                    <div class="text-headline-md text-primary font-bold truncate">${escapeHtml(stats.topStudent.name)}</div>
+                    <div class="text-xs text-on-surface-variant mt-1">${stats.topPct}% حضور</div>
+                </div>` : ''}
+            </section>
+
+            <!-- Two columns: Sessions + Students -->
+            <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6 fade-in" style="animation-delay: 0.25s">
+                ${renderSessionsList(filtered, students)}
+                ${renderStudentsList(students, stats.studentStats)}
+            </section>
+        `;
+
+        // Attach tab listeners
+        mainContent.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentFilter = btn.getAttribute('data-filter');
+                render();
+            });
+        });
+
+        // Draw chart
+        drawChart(filtered, students);
+    }
+
+    function renderStatCard(icon, label, value, color, bgClass) {
+        return `
+            <div class="stat-card bg-surface-container rounded-2xl p-4 shadow-sm border-t-2 border-t-${color}">
+                <div class="w-10 h-10 rounded-full ${bgClass} flex items-center justify-center text-${color} mb-2">
+                    <span class="material-symbols-outlined">${icon}</span>
+                </div>
+                <div class="text-headline-lg text-primary font-bold">${value}</div>
+                <div class="text-label-bold text-on-surface-variant mt-1">${label}</div>
+            </div>
+        `;
+    }
+
+    function renderSessionsList(attendance, students) {
+        if (attendance.length === 0) {
+            return `<div class="bg-surface-container rounded-2xl p-5 shadow-sm text-center py-10">
+                <span class="material-symbols-outlined text-4xl text-outline-variant">event_busy</span>
+                <p class="text-body-md text-on-surface-variant mt-2">لا توجد جلسات</p>
+            </div>`;
+        }
+
+        const sorted = attendance.slice().sort((a, b) => b.date.localeCompare(a.date));
+        const items = sorted.map(s => {
+            let p = 0, a = 0;
+            if (s.records) {
+                Object.values(s.records).forEach(st => {
+                    if (st === 'present') p++;
+                    else if (st === 'absent') a++;
+                });
+            }
+            const total = p + a;
+            const pct = total > 0 ? Math.round((p / total) * 100) : 0;
+            const barColor = pct >= 70 ? 'bg-success' : pct >= 40 ? 'bg-secondary' : 'bg-error';
+            return `
+                <div class="session-row flex items-center gap-3 py-3 border-b border-outline-variant last:border-0">
+                    <div class="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span class="material-symbols-outlined text-primary">event</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between mb-1">
+                            <div class="text-body-md font-bold text-primary">${formatShortDate(s.date)}</div>
+                            <span class="text-sm font-bold ${pct >= 70 ? 'text-success' : pct >= 40 ? 'text-secondary' : 'text-error'}">${pct}%</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+                            <div class="progress-bar h-full ${barColor} rounded-full" style="width: ${pct}%"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-on-surface-variant mt-1">
+                            <span>${p} حاضر</span>
+                            <span>${a} غائب</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="bg-surface-container rounded-2xl p-5 shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-headline-md text-primary font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-secondary">event_note</span>
+                        الجلسات
+                    </h4>
+                    <span class="text-xs text-on-surface-variant bg-surface px-2 py-1 rounded-full">${attendance.length}</span>
+                </div>
+                <div class="max-h-96 overflow-y-auto">${items}</div>
+            </div>
+        `;
+    }
+
+    function renderStudentsList(students, studentStats) {
+        if (students.length === 0) {
+            return `<div class="bg-surface-container rounded-2xl p-5 shadow-sm text-center py-10">
+                <span class="material-symbols-outlined text-4xl text-outline-variant">group_off</span>
+                <p class="text-body-md text-on-surface-variant mt-2">لا يوجد طلبة</p>
+            </div>`;
+        }
+
+        // Sort by attendance percentage desc
+        const list = students.map(s => {
+            const st = studentStats[s.id] || { present: 0, absent: 0 };
+            const total = st.present + st.absent;
+            const pct = total > 0 ? Math.round((st.present / total) * 100) : 0;
+            return { student: s, ...st, total, pct };
+        }).sort((a, b) => b.pct - a.pct || b.present - a.present);
+
+        const items = list.map((item, idx) => {
+            const barColor = item.pct >= 70 ? 'bg-success' : item.pct >= 40 ? 'bg-secondary' : item.total === 0 ? 'bg-outline-variant' : 'bg-error';
+            const textColor = item.pct >= 70 ? 'text-success' : item.pct >= 40 ? 'text-secondary' : item.total === 0 ? 'text-on-surface-variant' : 'text-error';
+            const medal = idx === 0 && item.total > 0 ? '<span class="material-symbols-outlined text-secondary text-sm">workspace_premium</span>' : '';
+            return `
+                <div class="student-row flex items-center gap-3 py-2.5 border-b border-outline-variant last:border-0">
+                    <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span class="text-primary font-bold text-xs">${escapeHtml(getInitials(item.student.name))}</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            ${medal}
+                            <div class="text-body-md font-semibold text-primary truncate">${escapeHtml(item.student.name)}</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="flex-1 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+                                <div class="progress-bar h-full ${barColor} rounded-full" style="width: ${item.pct}%"></div>
+                            </div>
+                            <span class="text-xs font-bold ${textColor} w-10 text-left">${item.total > 0 ? item.pct + '%' : '—'}</span>
+                        </div>
+                        <div class="text-xs text-on-surface-variant mt-0.5">${item.present} حاضر • ${item.absent} غائب</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="bg-surface-container rounded-2xl p-5 shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-headline-md text-primary font-bold flex items-center gap-2">
+                        <span class="material-symbols-outlined text-secondary">leaderboard</span>
+                        ترتيب الطلبة
+                    </h4>
+                    <span class="text-xs text-on-surface-variant bg-surface px-2 py-1 rounded-full">${students.length}</span>
+                </div>
+                <div class="max-h-96 overflow-y-auto">${items}</div>
+            </div>
+        `;
+    }
+
+    function renderEmpty(type) {
+        const wallet = getActiveWallet();
+        if (wallet) {
+            headerSubtitle.textContent = `محفظ: ${wallet.name}`;
+            sideName.textContent = wallet.name;
+        }
+
+        if (type === 'students') {
+            mainContent.innerHTML = `
+                <div class="flex-1 flex items-center justify-center fade-in">
+                    <div class="bg-surface-container rounded-2xl p-8 shadow-sm text-center max-w-md w-full">
+                        <div class="empty-state inline-flex items-center justify-center w-24 h-24 rounded-full bg-secondary/10 mb-4">
+                            <span class="material-symbols-outlined text-secondary text-5xl">group_off</span>
+                        </div>
+                        <h3 class="text-headline-md text-primary font-bold mb-2">لا يوجد طلبة</h3>
+                        <p class="text-body-md text-on-surface-variant mb-5">أضف طلبة أولاً لتتمكن من عرض التقارير</p>
+                        <button onclick="location.href='students.html'" class="bg-secondary text-white px-6 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-transform inline-flex items-center gap-2">
+                            <span class="material-symbols-outlined">person_add</span>
+                            إضافة طلبة
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else {
+            mainContent.innerHTML = `
+                <div class="flex-1 flex items-center justify-center fade-in">
+                    <div class="bg-surface-container rounded-2xl p-8 shadow-sm text-center max-w-md w-full">
+                        <div class="empty-state inline-flex items-center justify-center w-24 h-24 rounded-full bg-primary/10 mb-4">
+                            <span class="material-symbols-outlined text-primary text-5xl">event_busy</span>
+                        </div>
+                        <h3 class="text-headline-md text-primary font-bold mb-2">لا توجد جلسات حضور</h3>
+                        <p class="text-body-md text-on-surface-variant mb-5">ابدأ بتسجيل الحضور لعرض التقارير والإحصائيات</p>
+                        <button onclick="location.href='attendance.html'" class="bg-secondary text-white px-6 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-transform inline-flex items-center gap-2">
+                            <span class="material-symbols-outlined">how_to_reg</span>
+                            أخذ الحضور
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    function renderNoWallet() {
+        headerSubtitle.textContent = 'غير مسجل';
+        sideName.textContent = '—';
+        mainContent.innerHTML = `
+            <div class="flex-1 flex items-center justify-center fade-in">
+                <div class="bg-surface-container rounded-2xl p-8 shadow-sm text-center max-w-md w-full">
+                    <div class="empty-state inline-flex items-center justify-center w-24 h-24 rounded-full bg-error/10 mb-4">
+                        <span class="material-symbols-outlined text-error text-5xl">warning</span>
+                    </div>
+                    <h3 class="text-headline-md text-primary font-bold mb-2">لا يوجد محفظ نشط</h3>
+                    <p class="text-body-md text-on-surface-variant mb-5">يرجى تسجيل الدخول كمحفظ أولاً</p>
+                    <button onclick="location.href='index.html'" class="bg-secondary text-white px-6 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-transform inline-flex items-center gap-2">
+                        <span class="material-symbols-outlined">login</span>
+                        تسجيل الدخول
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    // ---- Chart ----
+    function drawChart(attendance, students) {
+        const canvas = document.getElementById('attendanceChart');
+        if (!canvas) return;
+        if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+
+        const sorted = attendance.slice().sort((a, b) => a.date.localeCompare(b.date));
+        const labels = sorted.map(s => formatShortDate(s.date));
+        const data = sorted.map(s => {
+            let p = 0, a = 0;
+            if (s.records) {
+                Object.values(s.records).forEach(st => {
+                    if (st === 'present') p++;
+                    else if (st === 'absent') a++;
+                });
+            }
+            const t = p + a;
+            return t > 0 ? Math.round((p / t) * 100) : 0;
+        });
+
+        const ctx = canvas.getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 260);
+        gradient.addColorStop(0, 'rgba(30, 125, 69, 0.3)');
+        gradient.addColorStop(1, 'rgba(30, 125, 69, 0)');
+
+        chartInstance = new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'نسبة الحضور %',
+                    data: data,
+                    borderColor: '#1E7D45',
+                    backgroundColor: gradient,
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.35,
+                    pointBackgroundColor: '#1E7D45',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#0B1D3A',
+                        titleFont: { family: 'Cairo', size: 13 },
+                        bodyFont: { family: 'Cairo', size: 13, weight: 'bold' },
+                        padding: 12,
+                        cornerRadius: 10,
+                        displayColors: false,
+                        callbacks: {
+                            label: (ctx) => `نسبة الحضور: ${ctx.parsed.y}%`
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            stepSize: 25,
+                            callback: (v) => v + '%',
+                            font: { family: 'Cairo', size: 11 },
+                            color: '#44474d'
+                        },
+                        grid: { color: 'rgba(0,0,0,0.05)' }
+                    },
+                    x: {
+                        ticks: {
+                            font: { family: 'Cairo', size: 11 },
+                            color: '#44474d',
+                            maxRotation: 45,
+                            minRotation: 0
+                        },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    }
+
+    // ---- Export ----
+    window.exportData = function() {
+        const wallet = getActiveWallet();
+        if (!wallet) { alert('لا يوجد محفظ نشط'); return; }
+        const students = getStudents(wallet.id);
+        const attendance = getAttendance(wallet.id);
+        if (students.length === 0 || attendance.length === 0) {
+            alert('لا توجد بيانات للتصدير');
+            return;
+        }
+
+        const stats = computeStats(attendance, students);
+        let csv = '\uFEFF'; // BOM for Arabic
+        csv += `تقرير حضور - مسجد الهادي النبوي\n`;
+        csv += `المحفظ: ${wallet.name}\n`;
+        csv += `تاريخ التقرير: ${formatArabicDate(getTodayISO())}\n\n`;
+        csv += `إحصائيات عامة\n`;
+        csv += `إجمالي الجلسات,${stats.totalSessions}\n`;
+        csv += `متوسط نسبة الحضور,${stats.avgPct}%\n`;
+        csv += `إجمالي الحضور,${stats.totalPresent}\n`;
+        csv += `إجمالي الغياب,${stats.totalAbsent}\n\n`;
+
+        csv += `تفاصيل الجلسات\n`;
+        csv += `التاريخ,حاضر,غائب,النسبة\n`;
+        attendance.slice().sort((a,b) => b.date.localeCompare(a.date)).forEach(s => {
+            let p = 0, a = 0;
+            if (s.records) {
+                Object.values(s.records).forEach(st => {
+                    if (st === 'present') p++;
+                    else if (st === 'absent') a++;
+                });
+            }
+            const t = p + a;
+            const pct = t > 0 ? Math.round((p/t)*100) : 0;
+            csv += `${s.date},${p},${a},${pct}%\n`;
+        });
+
+        csv += `\nتفاصيل الطلبة\n`;
+        csv += `الاسم,حاضر,غائب,النسبة\n`;
+        students.forEach(s => {
+            const st = stats.studentStats[s.id] || { present: 0, absent: 0 };
+            const t = st.present + st.absent;
+            const pct = t > 0 ? Math.round((st.present/t)*100) : 0;
+            csv += `${s.name},${st.present},${st.absent},${pct}%\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `تقرير_حضور_${wallet.name}_${getTodayISO()}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    // ---- Init ----
+    const wallet = getActiveWallet();
+    if (wallet) currentWalletId = wallet.id;
+    render();
+
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+    window.addEventListener('storage', () => render());
+})();
+</script>
+</body>
+</html>
+

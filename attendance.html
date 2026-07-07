@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>أخذ الحضور اليوم - مسجد الهدي النبوي</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<script>
+tailwind.config = {
+    darkMode: "class",
+    theme: {
+        extend: {
+            colors: {
+                "primary": "#0B1D3A",
+                "primary-container": "#0b1d3a",
+                "on-primary": "#ffffff",
+                "secondary": "#C9A23A",
+                "secondary-container": "#fdd265",
+                "on-secondary-container": "#755900",
+                "secondary-fixed-dim": "#ebc156",
+                "surface": "#F5F6F8",
+                "surface-container": "#FFFFFF",
+                "surface-container-low": "#f3f3f4",
+                "surface-container-high": "#e8e8e8",
+                "surface-container-highest": "#e2e2e2",
+                "on-surface": "#1a1c1c",
+                "on-surface-variant": "#44474d",
+                "outline": "#75777e",
+                "outline-variant": "#e2e2e2",
+                "error": "#BA1A1A",
+                "error-container": "#ffdad6",
+                "success": "#1E7D45",
+                "success-container": "#d4f5dd",
+                "background": "#F5F6F8",
+            },
+            fontFamily: { "body": ["Cairo", "sans-serif"] },
+            fontSize: {
+                "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+                "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+                "headline-md": ["20px", { lineHeight: "28px", fontWeight: "700" }],
+                "headline-lg": ["24px", { lineHeight: "32px", fontWeight: "700" }],
+                "label-bold": ["12px", { lineHeight: "16px", fontWeight: "700" }],
+            },
+        }
+    }
+}
+</script>
+<style>
+    body { font-family: 'Cairo', sans-serif; background-color: #F5F6F8; }
+    .attendance-toggle { transition: all 0.2s ease-in-out; user-select: none; }
+    .attendance-toggle[data-state="present"] { background-color: #d4f5dd; color: #1E7D45; border-color: #1E7D45; }
+    .attendance-toggle[data-state="absent"] { background-color: #ffdad6; color: #BA1A1A; border-color: #BA1A1A; }
+    .attendance-toggle[data-state="none"] { background-color: #f1f3f4; color: #5f6368; border-color: #dadce0; }
+    .attendance-toggle:hover { transform: scale(1.05); }
+    .attendance-toggle:active { transform: scale(0.95); }
+    .student-row { animation: slideIn 0.3s ease-out both; cursor: pointer; }
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateX(10px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+    .toast {
+        position: fixed; bottom: 120px; left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: #0B1D3A; color: #fff;
+        padding: 12px 20px; border-radius: 16px;
+        font-size: 14px; font-weight: 600;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        opacity: 0; pointer-events: none;
+        transition: opacity .25s, transform .25s;
+        max-width: 90%; text-align: center; z-index: 999;
+    }
+    .toast.error { background: #BA1A1A; }
+    .toast.success { background: #1E7D45; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .progress-bar { transition: width 0.4s ease; }
+    .modal-backdrop {
+        background: rgba(11, 29, 58, 0.5);
+        backdrop-filter: blur(4px);
+    }
+    .modal-enter { animation: modalIn 0.25s ease-out; }
+    @keyframes modalIn {
+        from { opacity: 0; transform: translateY(20px) scale(0.95); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .day-chip { transition: all 0.15s ease; }
+    .day-chip:hover { transform: translateY(-2px); }
+    .empty-state { animation: floaty 3s ease-in-out infinite; }
+    @keyframes floaty {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
+    }
+</style>
+</head>
+<body class="bg-background text-on-background antialiased flex flex-col min-h-screen">
+
+<!-- Top App Bar -->
+<header class="flex justify-between items-center px-4 py-3 w-full bg-surface-container text-primary sticky top-0 z-10 shadow-sm">
+    <button onclick="history.back()" class="text-primary hover:bg-surface p-2 rounded-full transition-colors flex items-center justify-center">
+        <span class="material-symbols-outlined">arrow_forward</span>
+    </button>
+    <div class="text-center flex-1">
+        <h1 class="text-headline-md font-bold text-primary">أخذ الحضور اليوم</h1>
+        <p class="text-label-bold text-secondary" id="dateLabel">—</p>
+    </div>
+    <button id="bulkMenuBtn" class="text-primary hover:bg-surface p-2 rounded-full transition-colors flex items-center justify-center" title="إجراءات جماعية">
+        <span class="material-symbols-outlined">checklist</span>
+    </button>
+</header>
+
+<!-- Bulk Actions Bar -->
+<div id="bulkBar" class="hidden bg-surface-container border-b border-outline-variant px-4 py-2 flex items-center justify-between gap-2">
+    <div class="flex gap-2 flex-wrap">
+        <button id="markAllPresent" class="px-3 py-1.5 rounded-full bg-success/10 text-success text-xs font-bold flex items-center gap-1 active:scale-95 transition-transform">
+            <span class="material-symbols-outlined text-sm">done_all</span>
+            الجميع حاضر
+        </button>
+        <button id="markAllAbsent" class="px-3 py-1.5 rounded-full bg-error/10 text-error text-xs font-bold flex items-center gap-1 active:scale-95 transition-transform">
+            <span class="material-symbols-outlined text-sm">close</span>
+            الجميع غائب
+        </button>
+        <button id="clearAll" class="px-3 py-1.5 rounded-full bg-on-surface-variant/10 text-on-surface-variant text-xs font-bold flex items-center gap-1 active:scale-95 transition-transform">
+            <span class="material-symbols-outlined text-sm">restart_alt</span>
+            تصفير
+        </button>
+    </div>
+    <button id="closeBulk" class="text-on-surface-variant p-1">
+        <span class="material-symbols-outlined text-lg">close</span>
+    </button>
+</div>
+
+<!-- Main Content -->
+<main class="flex-1 px-4 py-6 overflow-y-auto pb-40" id="mainContent"></main>
+
+<!-- Save Action Footer -->
+<div class="fixed bottom-0 left-0 w-full bg-surface-container border-t border-outline-variant px-4 py-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20">
+    <div class="mb-3">
+        <div class="flex justify-between text-xs text-on-surface-variant mb-1">
+            <span id="progressLabel">لم يتم التسجيل بعد</span>
+            <span id="progressPct">0%</span>
+        </div>
+        <div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+            <div id="progressBar" class="progress-bar h-full bg-success rounded-full" style="width: 0%"></div>
+        </div>
+    </div>
+    <button id="saveBtn" class="w-full bg-secondary text-on-primary py-3.5 rounded-xl text-headline-md font-bold shadow-md active:scale-[0.98] transition-transform flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed" disabled>
+        <span class="material-symbols-outlined">save</span>
+        <span id="saveBtnLabel">حفظ الحضور</span>
+    </button>
+</div>
+
+<!-- History Modal -->
+<div id="historyModal" class="fixed inset-0 z-50 hidden items-center justify-center modal-backdrop p-4">
+    <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl modal-enter max-h-[85vh] overflow-hidden flex flex-col">
+        <div class="flex items-center justify-between p-5 border-b border-outline-variant flex-shrink-0">
+            <div class="flex items-center gap-3">
+                <div id="historyAvatar" class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <span class="text-primary font-bold">—</span>
+                </div>
+                <div>
+                    <h2 id="historyTitle" class="text-headline-md font-bold text-primary leading-tight">—</h2>
+                    <p id="historySubtitle" class="text-xs text-on-surface-variant">سجل الحضور</p>
+                </div>
+            </div>
+            <button id="closeHistory" class="text-on-surface-variant hover:text-primary p-2">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <div class="p-5 overflow-y-auto flex-1" id="historyBody"></div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+    const WALLETS_KEY = 'masjid_alhadi_wallets';
+    const STUDENTS_PREFIX = 'masjid_alhadi_students_';
+    const ATTENDANCE_PREFIX = 'masjid_alhadi_attendance_';
+    const ACTIVE_WALLET_KEY = 'masjid_alhadi_active_wallet';
+
+    const mainContent = document.getElementById('mainContent');
+    const dateLabel = document.getElementById('dateLabel');
+    const saveBtn = document.getElementById('saveBtn');
+    const saveBtnLabel = document.getElementById('saveBtnLabel');
+    const progressLabel = document.getElementById('progressLabel');
+    const progressPct = document.getElementById('progressPct');
+    const progressBar = document.getElementById('progressBar');
+    const bulkBar = document.getElementById('bulkBar');
+    const toast = document.getElementById('toast');
+    const historyModal = document.getElementById('historyModal');
+    const historyTitle = document.getElementById('historyTitle');
+    const historySubtitle = document.getElementById('historySubtitle');
+    const historyAvatar = document.getElementById('historyAvatar');
+    const historyBody = document.getElementById('historyBody');
+
+    let currentWalletId = null;
+    let students = [];
+    let attendanceRecords = {};
+    let sessionExistsToday = false;
+    let searchQuery = '';
+    let allAttendance = [];
+
+    // ---- Storage ----
+    function getActiveWallet() {
+        try {
+            const wallets = JSON.parse(localStorage.getItem(WALLETS_KEY) || '[]');
+            if (wallets.length === 0) return null;
+            const activeId = localStorage.getItem(ACTIVE_WALLET_KEY);
+            if (activeId) {
+                const found = wallets.find(w => String(w.id) === String(activeId));
+                if (found) return found;
+            }
+            const last = wallets[wallets.length - 1];
+            localStorage.setItem(ACTIVE_WALLET_KEY, last.id);
+            return last;
+        } catch (e) { return null; }
+    }
+    function getStudents(walletId) {
+        try { const raw = localStorage.getItem(STUDENTS_PREFIX + walletId); return raw ? JSON.parse(raw) : []; }
+        catch (e) { return []; }
+    }
+    function getAttendance(walletId) {
+        try { const raw = localStorage.getItem(ATTENDANCE_PREFIX + walletId); return raw ? JSON.parse(raw) : []; }
+        catch (e) { return []; }
+    }
+    function saveAttendance(walletId, list) {
+        localStorage.setItem(ATTENDANCE_PREFIX + walletId, JSON.stringify(list));
+    }
+    function getTodayISO() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+    function formatArabicDate(isoDate) {
+        const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+        const days = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+        const d = new Date(isoDate + 'T00:00:00');
+        return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+    }
+    function formatShortDate(isoDate) {
+        const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+        const d = new Date(isoDate + 'T00:00:00');
+        return `${d.getDate()} ${months[d.getMonth()]}`;
+    }
+    function formatShortDay(isoDate) {
+        const days = ['أحد','إثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'];
+        const d = new Date(isoDate + 'T00:00:00');
+        return days[d.getDay()];
+    }
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+    function getInitials(name) {
+        const parts = (name || '').trim().split(/\s+/);
+        if (parts.length >= 2) return parts[0][0] + parts[1][0];
+        return parts[0][0] || '?';
+    }
+    function showToast(message, type) {
+        toast.textContent = message;
+        toast.className = 'toast show' + (type ? ' ' + type : '');
+        setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    // ---- Student history ----
+    function getStudentHistory(studentId) {
+        // returns array of { date, status } sorted desc
+        const history = [];
+        allAttendance.forEach(session => {
+            if (session.records && session.records[studentId] !== undefined) {
+                history.push({ date: session.date, status: session.records[studentId] });
+            }
+        });
+        history.sort((a, b) => b.date.localeCompare(a.date));
+        return history;
+    }
+
+    function openHistory(student) {
+        const history = getStudentHistory(student.id);
+        historyTitle.textContent = student.name;
+        historyAvatar.innerHTML = `<span class="text-primary font-bold">${escapeHtml(getInitials(student.name))}</span>`;
+
+        const presentCount = history.filter(h => h.status === 'present').length;
+        const absentCount = history.filter(h => h.status === 'absent').length;
+        const total = presentCount + absentCount;
+        const pct = total > 0 ? Math.round((presentCount / total) * 100) : 0;
+
+        historySubtitle.textContent = `${history.length} جلسة مسجلة`;
+
+        if (history.length === 0) {
+            historyBody.innerHTML = `
+                <div class="text-center py-8">
+                    <div class="empty-state inline-flex items-center justify-center w-20 h-20 rounded-full bg-secondary/10 mb-3">
+                        <span class="material-symbols-outlined text-secondary text-4xl">event_busy</span>
+                    </div>
+                    <h3 class="text-headline-md text-primary font-bold mb-2">لا يوجد سجل حضور</h3>
+                    <p class="text-body-md text-on-surface-variant">لم يتم تسجيل حضور هذا الطالب في أي جلسة سابقة</p>
+                </div>
+            `;
+        } else {
+            const chips = history.map(h => {
+                const isPresent = h.status === 'present';
+                const bgClass = isPresent ? 'bg-success/10 text-success border-success/30' : 'bg-error/10 text-error border-error/30';
+                const icon = isPresent ? 'check_circle' : 'cancel';
+                const label = isPresent ? 'حاضر' : 'غائب';
+                return `
+                    <div class="day-chip flex items-center justify-between p-3 rounded-xl border ${bgClass}">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-xl">${icon}</span>
+                            <div>
+                                <div class="font-bold text-sm">${formatShortDate(h.date)}</div>
+                                <div class="text-xs opacity-80">${formatShortDay(h.date)}</div>
+                            </div>
+                        </div>
+                        <span class="text-xs font-bold px-2 py-1 rounded-full ${isPresent ? 'bg-success/20' : 'bg-error/20'}">${label}</span>
+                    </div>
+                `;
+            }).join('');
+
+            historyBody.innerHTML = `
+                <!-- Stats summary -->
+                <div class="grid grid-cols-3 gap-2 mb-4">
+                    <div class="bg-surface rounded-xl p-3 text-center">
+                        <div class="text-headline-md text-primary font-bold">${total}</div>
+                        <div class="text-xs text-on-surface-variant">إجمالي الجلسات</div>
+                    </div>
+                    <div class="bg-success/10 rounded-xl p-3 text-center">
+                        <div class="text-headline-md text-success font-bold">${presentCount}</div>
+                        <div class="text-xs text-on-surface-variant">حاضر</div>
+                    </div>
+                    <div class="bg-error/10 rounded-xl p-3 text-center">
+                        <div class="text-headline-md text-error font-bold">${absentCount}</div>
+                        <div class="text-xs text-on-surface-variant">غائب</div>
+                    </div>
+                </div>
+
+                <!-- Attendance rate -->
+                <div class="bg-surface rounded-xl p-4 mb-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-bold text-primary">نسبة الحضور</span>
+                        <span class="text-sm font-bold ${pct >= 70 ? 'text-success' : pct >= 40 ? 'text-secondary' : 'text-error'}">${pct}%</span>
+                    </div>
+                    <div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+                        <div class="h-full ${pct >= 70 ? 'bg-success' : pct >= 40 ? 'bg-secondary' : 'bg-error'} rounded-full" style="width: ${pct}%"></div>
+                    </div>
+                </div>
+
+                <!-- Days list -->
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-sm font-bold text-primary flex items-center gap-1">
+                        <span class="material-symbols-outlined text-base text-secondary">calendar_month</span>
+                        أيام الحضور
+                    </h4>
+                    <span class="text-xs text-on-surface-variant">${history.length} يوم</span>
+                </div>
+                <div class="space-y-2">${chips}</div>
+            `;
+        }
+
+        historyModal.classList.remove('hidden');
+        historyModal.classList.add('flex');
+    }
+
+    function closeHistory() {
+        historyModal.classList.add('hidden');
+        historyModal.classList.remove('flex');
+    }
+
+    // ---- Render ----
+    function render() {
+        const today = getTodayISO();
+        dateLabel.textContent = formatArabicDate(today);
+
+        if (!currentWalletId) { renderNoWallet(); return; }
+
+        students = getStudents(currentWalletId);
+        allAttendance = getAttendance(currentWalletId);
+
+        if (students.length === 0) { renderNoStudents(); return; }
+
+        const todaySession = allAttendance.find(a => a.date === today);
+        sessionExistsToday = !!todaySession;
+        attendanceRecords = {};
+        if (todaySession && todaySession.records) {
+            attendanceRecords = { ...todaySession.records };
+        }
+
+        renderAttendanceList();
+        updateStats();
+    }
+
+    function renderAttendanceList() {
+        const filtered = searchQuery
+            ? students.filter(s =>
+                s.name.toLowerCase().includes(searchQuery) ||
+                (s.phone && s.phone.includes(searchQuery)) ||
+                (s.level && s.level.toLowerCase().includes(searchQuery)))
+            : students;
+
+        if (filtered.length === 0 && searchQuery) {
+            mainContent.innerHTML = `
+                <div class="text-center py-12">
+                    <span class="material-symbols-outlined text-5xl text-outline-variant">search_off</span>
+                    <p class="text-body-lg text-on-surface-variant mt-3">لا توجد نتائج لـ "${escapeHtml(searchQuery)}"</p>
+                </div>
+            `;
+            return;
+        }
+
+        const rows = filtered.map((s, idx) => {
+            const state = attendanceRecords[s.id] || 'none';
+            const presentState = state === 'present' ? 'present' : 'none';
+            const absentState = state === 'absent' ? 'absent' : 'none';
+            const history = getStudentHistory(s.id);
+            const historyBadge = history.length > 0
+                ? `<span class="text-[10px] text-on-surface-variant bg-surface-container-highest px-1.5 py-0.5 rounded-full">${history.length} جلسة</span>`
+                : '';
+            return `
+                <div class="student-row bg-surface-container rounded-xl shadow-sm border-b border-outline-variant overflow-hidden" data-student-id="${s.id}" style="animation-delay: ${idx * 30}ms">
+                    <div class="flex items-center justify-between p-3">
+                        <div class="flex items-center gap-3 flex-1 min-w-0 view-history-btn" data-sid="${s.id}">
+                            <div class="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                <span class="text-primary font-bold text-sm">${escapeHtml(getInitials(s.name))}</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <div class="text-body-lg text-on-surface font-semibold truncate">${escapeHtml(s.name)}</div>
+                                    ${historyBadge}
+                                </div>
+                                ${s.level ? `<div class="text-xs text-on-surface-variant truncate">${escapeHtml(s.level)}</div>` : ''}
+                            </div>
+                        </div>
+                        <div class="flex gap-1.5 flex-shrink-0">
+                            <button class="attendance-toggle px-3 py-1.5 rounded-full border text-label-bold flex items-center gap-1 ${state === 'present' ? 'ring-2 ring-success/40' : ''}" data-state="${presentState}" data-action="present" data-sid="${s.id}">
+                                <span class="material-symbols-outlined text-[16px]">check</span>
+                                حاضر
+                            </button>
+                            <button class="attendance-toggle px-3 py-1.5 rounded-full border text-label-bold flex items-center gap-1 ${state === 'absent' ? 'ring-2 ring-error/40' : ''}" data-state="${absentState}" data-action="absent" data-sid="${s.id}">
+                                <span class="material-symbols-outlined text-[16px]">close</span>
+                                غائب
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        mainContent.innerHTML = `
+            <div class="mb-4">
+                <div class="relative">
+                    <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+                    <input id="searchInput" class="w-full bg-surface-container-low text-on-surface border-none rounded-xl py-3 pr-10 pl-10 focus:ring-2 focus:ring-primary focus:outline-none text-body-md" placeholder="بحث عن طالب..." type="text" value="${escapeHtml(searchQuery)}"/>
+                    ${searchQuery ? `<button id="clearSearch" class="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined text-lg">close</span></button>` : ''}
+                </div>
+            </div>
+
+            ${sessionExistsToday ? `
+            <div class="mb-4 bg-secondary/10 border border-secondary/30 rounded-xl p-3 flex items-center gap-2">
+                <span class="material-symbols-outlined text-secondary">edit_note</span>
+                <span class="text-sm text-on-surface font-semibold">يوجد جلسة حضور محفوظة اليوم — يمكنك التعديل عليها</span>
+            </div>
+            ` : `
+            <div class="mb-4 bg-primary/5 border border-primary/20 rounded-xl p-3 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">info</span>
+                <span class="text-sm text-on-surface font-semibold">انقر على اسم الطالب لعرض سجل حضوره</span>
+            </div>
+            `}
+
+            <div class="space-y-2.5">${rows}</div>
+        `;
+
+        // Listeners
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                searchQuery = e.target.value.trim().toLowerCase();
+                renderAttendanceList();
+            });
+        }
+        const clearSearch = document.getElementById('clearSearch');
+        if (clearSearch) {
+            clearSearch.addEventListener('click', () => {
+                searchQuery = '';
+                renderAttendanceList();
+            });
+        }
+
+        // Toggle buttons
+        mainContent.querySelectorAll('.attendance-toggle').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const sid = btn.getAttribute('data-sid');
+                const action = btn.getAttribute('data-action');
+                toggleStudentState(sid, action);
+            });
+        });
+
+        // Click on student -> open history
+        mainContent.querySelectorAll('.view-history-btn').forEach(el => {
+            el.addEventListener('click', () => {
+                const sid = el.getAttribute('data-sid');
+                const student = students.find(s => String(s.id) === String(sid));
+                if (student) openHistory(student);
+            });
+        });
+    }
+
+    function toggleStudentState(studentId, action) {
+        if (attendanceRecords[studentId] === action) {
+            delete attendanceRecords[studentId];
+        } else {
+            attendanceRecords[studentId] = action;
+        }
+        renderAttendanceList();
+        updateStats();
+    }
+
+    function updateStats() {
+        let present = 0, absent = 0;
+        students.forEach(s => {
+            const st = attendanceRecords[s.id];
+            if (st === 'present') present++;
+            else if (st === 'absent') absent++;
+        });
+        const total = students.length;
+        const marked = present + absent;
+        const pct = total > 0 ? Math.round((marked / total) * 100) : 0;
+
+        progressLabel.textContent = `${marked} من ${total} تم تسجيلهم`;
+        progressPct.textContent = `${pct}%`;
+        progressBar.style.width = `${pct}%`;
+
+        if (pct >= 70) progressBar.className = 'progress-bar h-full bg-success rounded-full';
+        else if (pct >= 40) progressBar.className = 'progress-bar h-full bg-secondary rounded-full';
+        else progressBar.className = 'progress-bar h-full bg-error rounded-full';
+
+        saveBtnLabel.textContent = `حفظ الحضور (${present} حاضر، ${absent} غائب)`;
+        saveBtn.disabled = marked === 0;
+        if (marked === 0) progressLabel.textContent = 'لم يتم التسجيل بعد';
+    }
+
+    function renderNoStudents() {
+        mainContent.innerHTML = `
+            <div class="text-center py-12">
+                <div class="empty-state inline-flex items-center justify-center w-24 h-24 rounded-full bg-secondary/10 mb-4">
+                    <span class="material-symbols-outlined text-secondary text-5xl">group_off</span>
+                </div>
+                <h3 class="text-headline-md text-primary font-bold mb-2">لا يوجد طلبة</h3>
+                <p class="text-body-md text-on-surface-variant mb-5 max-w-sm mx-auto">يجب إضافة طلبة أولاً قبل أخذ الحضور</p>
+                <button onclick="location.href='students.html'" class="bg-secondary text-white px-6 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-transform inline-flex items-center gap-2">
+                    <span class="material-symbols-outlined">person_add</span>
+                    إضافة طلبة
+                </button>
+            </div>
+        `;
+        saveBtn.disabled = true;
+        saveBtnLabel.textContent = 'لا يوجد طلبة';
+    }
+
+    function renderNoWallet() {
+        mainContent.innerHTML = `
+            <div class="text-center py-12">
+                <div class="empty-state inline-flex items-center justify-center w-24 h-24 rounded-full bg-error/10 mb-4">
+                    <span class="material-symbols-outlined text-error text-5xl">warning</span>
+                </div>
+                <h3 class="text-headline-md text-primary font-bold mb-2">لا يوجد محفظ نشط</h3>
+                <p class="text-body-md text-on-surface-variant mb-5">يرجى تسجيل الدخول كمحفظ أولاً</p>
+                <button onclick="location.href='index.html'" class="bg-secondary text-white px-6 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-transform inline-flex items-center gap-2">
+                    <span class="material-symbols-outlined">login</span>
+                    تسجيل الدخول
+                </button>
+            </div>
+        `;
+        saveBtn.disabled = true;
+        saveBtnLabel.textContent = 'غير متاح';
+    }
+
+    // ---- Save ----
+    saveBtn.addEventListener('click', () => {
+        if (!currentWalletId || students.length === 0) return;
+        const marked = Object.keys(attendanceRecords).length;
+        if (marked === 0) { showToast('يرجى تسجيل حضور طالب واحد على الأقل', 'error'); return; }
+
+        saveBtn.disabled = true;
+        saveBtnLabel.textContent = 'جاري الحفظ...';
+
+        setTimeout(() => {
+            const today = getTodayISO();
+            const existingIdx = allAttendance.findIndex(a => a.date === today);
+            const session = { date: today, records: { ...attendanceRecords }, updatedAt: Date.now() };
+
+            if (existingIdx !== -1) {
+                allAttendance[existingIdx] = { ...allAttendance[existingIdx], ...session };
+            } else {
+                session.createdAt = Date.now();
+                allAttendance.push(session);
+            }
+            saveAttendance(currentWalletId, allAttendance);
+
+            const present = Object.values(attendanceRecords).filter(s => s === 'present').length;
+            const absent = Object.values(attendanceRecords).filter(s => s === 'absent').length;
+            saveBtn.disabled = false;
+            saveBtnLabel.textContent = `حفظ الحضور (${present} حاضر، ${absent} غائب)`;
+            sessionExistsToday = true;
+            renderAttendanceList();
+            showToast(existingIdx !== -1 ? 'تم تحديث الحضور بنجاح ✓' : 'تم حفظ الحضور بنجاح ✓', 'success');
+        }, 400);
+    });
+
+    // ---- Bulk ----
+    document.getElementById('bulkMenuBtn').addEventListener('click', () => bulkBar.classList.toggle('hidden'));
+    document.getElementById('closeBulk').addEventListener('click', () => bulkBar.classList.add('hidden'));
+    document.getElementById('markAllPresent').addEventListener('click', () => {
+        const list = searchQuery ? students.filter(s => s.name.toLowerCase().includes(searchQuery)) : students;
+        list.forEach(s => { attendanceRecords[s.id] = 'present'; });
+        renderAttendanceList(); updateStats(); bulkBar.classList.add('hidden');
+        showToast(`تم تسجيل ${list.length} طالب كحاضر`, 'success');
+    });
+    document.getElementById('markAllAbsent').addEventListener('click', () => {
+        const list = searchQuery ? students.filter(s => s.name.toLowerCase().includes(searchQuery)) : students;
+        list.forEach(s => { attendanceRecords[s.id] = 'absent'; });
+        renderAttendanceList(); updateStats(); bulkBar.classList.add('hidden');
+        showToast(`تم تسجيل ${list.length} طالب كغائب`, 'success');
+    });
+    document.getElementById('clearAll').addEventListener('click', () => {
+        const list = searchQuery ? students.filter(s => s.name.toLowerCase().includes(searchQuery)) : students;
+        list.forEach(s => { delete attendanceRecords[s.id]; });
+        renderAttendanceList(); updateStats(); bulkBar.classList.add('hidden');
+        showToast('تم تصفير التسجيل', 'success');
+    });
+
+    // ---- History modal ----
+    document.getElementById('closeHistory').addEventListener('click', closeHistory);
+    historyModal.addEventListener('click', (e) => { if (e.target === historyModal) closeHistory(); });
+
+    // ---- Init ----
+    const wallet = getActiveWallet();
+    if (wallet) currentWalletId = wallet.id;
+    render();
+})();
+</script>
+</body>
+</html>
+
