@@ -199,9 +199,10 @@ tailwind.config = {
     .students-scroll::-webkit-scrollbar-track { background: transparent; }
     .students-scroll::-webkit-scrollbar-thumb { background: #e2e2e2; border-radius: 3px; }
 
-    /* Bulk action bar */
-    .bulk-bar {
-        transition: all 0.3s ease;
+    /* Editing banner */
+    .editing-banner {
+        background: linear-gradient(135deg, #C9A23A 0%, #e0b84a 100%);
+        color: #fff;
     }
 </style>
 </head>
@@ -276,28 +277,6 @@ tailwind.config = {
     </div>
 </div>
 
-<!-- Existing Record Warning Modal -->
-<div id="warningModal" class="fixed inset-0 z-50 hidden items-center justify-center modal-backdrop p-4">
-    <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl modal-enter p-6 text-center">
-        <div class="w-16 h-16 bg-warning/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span class="material-symbols-outlined text-warning text-3xl">warning</span>
-        </div>
-        <h3 class="text-headline-md font-bold text-primary mb-2">يوجد سجل مسبق</h3>
-        <p class="text-body-md text-on-surface-variant mb-6" id="warningMsg">
-            يوجد بالفعل سجل حضور لهذا التاريخ. ماذا تريد أن تفعل؟
-        </p>
-        <div class="flex flex-col gap-2">
-            <button id="overwriteBtn" class="w-full bg-warning text-white py-3 rounded-xl font-bold active:scale-95 transition-transform flex items-center justify-center gap-2">
-                <span class="material-symbols-outlined">edit</span>
-                استبدال السجل الحالي
-            </button>
-            <button id="cancelWarning" class="w-full bg-surface text-on-surface py-3 rounded-xl font-bold border border-outline-variant active:scale-95 transition-transform">
-                إلغاء
-            </button>
-        </div>
-    </div>
-</div>
-
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -340,11 +319,6 @@ tailwind.config = {
     const cancelConfirm = document.getElementById('cancelConfirm');
     const okConfirm = document.getElementById('okConfirm');
 
-    const warningModal = document.getElementById('warningModal');
-    const warningMsg = document.getElementById('warningMsg');
-    const overwriteBtn = document.getElementById('overwriteBtn');
-    const cancelWarning = document.getElementById('cancelWarning');
-
     const toast = document.getElementById('toast');
 
     let currentWalletId = null;
@@ -354,9 +328,8 @@ tailwind.config = {
     let selectedDate = '';
     let sessionName = '';
     let records = {}; // { studentId: 'present'|'absent'|'excused'|'late' }
-    let editingExistingId = null; // if editing existing record
-    let pendingSave = false;
-    let pendingOverwrite = false;
+    let editingExistingId = null; // if editing existing record for this date
+    let confirmCallback = null;
 
     // ---- Storage helpers ----
     function getActiveWallet() {
@@ -429,6 +402,15 @@ tailwind.config = {
         return `${y}-${m}-${day}`;
     }
 
+    function getDaysAgo(n) {
+        const d = new Date();
+        d.setDate(d.getDate() - n);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
     function formatArabicDate(isoDate) {
         if (!isoDate) return '';
         const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
@@ -442,6 +424,24 @@ tailwind.config = {
         toast.textContent = message;
         toast.className = 'toast show' + (type ? ' ' + type : '');
         setTimeout(() => toast.classList.remove('show'), 2800);
+    }
+
+    // ---- Find existing record for a date ----
+    function findRecordForDate(date) {
+        return attendance.find(a => a.date === date);
+    }
+
+    // ---- Load records for the selected date ----
+    function loadRecordsForDate(date) {
+        const existing = findRecordForDate(date);
+        editingExistingId = existing ? existing.id : null;
+        if (existing && existing.records) {
+            records = { ...existing.records };
+            sessionName = existing.sessionName || '';
+        } else {
+            records = {};
+            sessionName = '';
+        }
     }
 
     // ---- Stats computation ----
@@ -483,25 +483,18 @@ tailwind.config = {
         // Default date = today
         selectedDate = selectedDate || getTodayISO();
 
-        // Check if there's an existing record for this date
-        const existing = attendance.find(a => a.date === selectedDate);
-        editingExistingId = existing ? existing.id : null;
-        if (existing && existing.records) {
-            records = { ...existing.records };
-            sessionName = existing.sessionName || '';
-        } else {
-            records = {};
-            sessionName = '';
-        }
+        // Load records for the selected date (existing or empty)
+        loadRecordsForDate(selectedDate);
 
         renderPage();
     }
 
     function renderPage() {
         const stats = computeStats();
-        const existing = attendance.find(a => a.date === selectedDate);
+        const existing = findRecordForDate(selectedDate);
         const isToday = selectedDate === getTodayISO();
         const isFuture = selectedDate > getTodayISO();
+        const isEditing = !!existing;
 
         mainContent.innerHTML = `
             <!-- Page header -->
@@ -510,9 +503,11 @@ tailwind.config = {
                     <div>
                         <h2 class="text-headline-lg text-primary font-bold flex items-center gap-2">
                             <span class="material-symbols-outlined text-secondary">event_available</span>
-                            تسجيل الحضور
+                            ${isEditing ? 'تعديل الحضور' : 'تسجيل الحضور'}
                         </h2>
-                        <p class="text-body-md text-on-surface-variant mt-1">اختر التاريخ وسجّل حضور الطلبة</p>
+                        <p class="text-body-md text-on-surface-variant mt-1">
+                            ${isEditing ? 'يوجد سجل مسبق لهذا التاريخ — سيتم تحديثه' : 'اختر التاريخ وسجّل حضور الطلبة'}
+                        </p>
                     </div>
                     <button onclick="location.href='dashboard.html'" class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center shadow-sm hover:bg-surface-container-low transition-colors">
                         <span class="material-symbols-outlined text-on-surface-variant">close</span>
@@ -520,22 +515,36 @@ tailwind.config = {
                 </div>
             </section>
 
+            ${isEditing ? `
+            <!-- Editing banner -->
+            <section class="editing-banner rounded-2xl p-4 mb-4 flex items-center gap-3 shadow-sm fade-in" style="animation-delay: 0.02s">
+                <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                    <span class="material-symbols-outlined text-white">edit</span>
+                </div>
+                <div class="flex-1">
+                    <h4 class="text-white font-bold text-sm">وضع التعديل</h4>
+                    <p class="text-white/80 text-xs mt-0.5">سيتم تحديث سجل ${formatArabicDate(selectedDate)} الموجود مباشرة</p>
+                </div>
+                <span class="bg-white/20 text-white text-xs font-bold px-2 py-1 rounded-full">${stats.marked} مسجَّل</span>
+            </section>
+            ` : ''}
+
             <!-- Date picker card -->
             <section class="bg-surface-container rounded-2xl p-5 shadow-sm mb-4 fade-in" style="animation-delay: 0.05s">
                 <label class="text-label-bold text-on-surface-variant mb-2 block">تاريخ الجلسة</label>
                 <input type="date" id="dateInput" class="date-input" value="${selectedDate}" max="${getTodayISO()}"/>
                 <div class="flex items-center justify-between mt-3">
                     <p class="text-sm text-primary font-bold" id="dateLabel">${formatArabicDate(selectedDate)}</p>
-                    ${existing ? `<span class="text-xs bg-secondary/10 text-secondary px-2 py-1 rounded-full font-bold flex items-center gap-1"><span class="material-symbols-outlined text-xs">edit</span>يوجد سجل مسبق</span>` : ''}
+                    ${existing ? `<span class="text-xs bg-secondary/10 text-secondary px-2 py-1 rounded-full font-bold flex items-center gap-1"><span class="material-symbols-outlined text-xs">edit</span>سجل موجود</span>` : `<span class="text-xs bg-success/10 text-success px-2 py-1 rounded-full font-bold flex items-center gap-1"><span class="material-symbols-outlined text-xs">add_circle</span>سجل جديد</span>`}
                 </div>
 
                 <!-- Quick date chips -->
                 <div class="flex gap-2 mt-3 overflow-x-auto pb-1">
                     <button class="quick-chip ${isToday ? 'active' : ''}" data-date="${getTodayISO()}">اليوم</button>
                     <button class="quick-chip ${selectedDate === getYesterdayISO() ? 'active' : ''}" data-date="${getYesterdayISO()}">أمس</button>
-                    <button class="quick-chip" data-date="${getDaysAgo(2)}">قبل يومين</button>
-                    <button class="quick-chip" data-date="${getDaysAgo(3)}">قبل 3 أيام</button>
-                    <button class="quick-chip" data-date="${getDaysAgo(7)}">قبل أسبوع</button>
+                    <button class="quick-chip ${selectedDate === getDaysAgo(2) ? 'active' : ''}" data-date="${getDaysAgo(2)}">قبل يومين</button>
+                    <button class="quick-chip ${selectedDate === getDaysAgo(3) ? 'active' : ''}" data-date="${getDaysAgo(3)}">قبل 3 أيام</button>
+                    <button class="quick-chip ${selectedDate === getDaysAgo(7) ? 'active' : ''}" data-date="${getDaysAgo(7)}">قبل أسبوع</button>
                 </div>
 
                 ${isFuture ? `
@@ -627,9 +636,9 @@ tailwind.config = {
 
             <!-- Save button -->
             <section class="sticky bottom-20 md:bottom-4 z-30 fade-in" style="animation-delay: 0.3s">
-                <button id="saveBtn" class="w-full bg-secondary text-white py-4 rounded-2xl font-bold shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" ${stats.marked === 0 ? 'disabled' : ''}>
-                    <span class="material-symbols-outlined">save</span>
-                    <span>حفظ سجل الحضور</span>
+                <button id="saveBtn" class="w-full ${isEditing ? 'bg-primary' : 'bg-secondary'} text-white py-4 rounded-2xl font-bold shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" ${stats.marked === 0 ? 'disabled' : ''}>
+                    <span class="material-symbols-outlined">${isEditing ? 'save' : 'add_circle'}</span>
+                    <span>${isEditing ? 'تحديث سجل الحضور' : 'حفظ سجل الحضور'}</span>
                     <span class="bg-white/20 px-2 py-0.5 rounded-full text-xs">${stats.marked}/${students.length}</span>
                 </button>
                 ${stats.marked === 0 ? `<p class="text-center text-xs text-on-surface-variant mt-2">قم بتسجيل حالة طالب واحد على الأقل</p>` : ''}
@@ -637,15 +646,6 @@ tailwind.config = {
         `;
 
         attachEvents();
-    }
-
-    function getDaysAgo(n) {
-        const d = new Date();
-        d.setDate(d.getDate() - n);
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${day}`;
     }
 
     function renderStudentRows() {
@@ -794,28 +794,13 @@ tailwind.config = {
                 'warning',
                 () => {
                     selectedDate = newDate;
-                    records = {};
-                    sessionName = '';
-                    // Load existing if any
-                    const existing = attendance.find(a => a.date === selectedDate);
-                    editingExistingId = existing ? existing.id : null;
-                    if (existing && existing.records) {
-                        records = { ...existing.records };
-                        sessionName = existing.sessionName || '';
-                    }
+                    loadRecordsForDate(selectedDate);
                     renderPage();
                 }
             );
         } else {
             selectedDate = newDate;
-            records = {};
-            sessionName = '';
-            const existing = attendance.find(a => a.date === selectedDate);
-            editingExistingId = existing ? existing.id : null;
-            if (existing && existing.records) {
-                records = { ...existing.records };
-                sessionName = existing.sessionName || '';
-            }
+            loadRecordsForDate(selectedDate);
             renderPage();
         }
     }
@@ -831,47 +816,56 @@ tailwind.config = {
                 'حفظ مع طلبة لم يُسجَّلوا',
                 `يوجد ${stats.unmarked} طالب لم يتم تحديد حالتهم. سيتم تجاهلهم. هل تريد المتابعة؟`,
                 'warning',
-                () => performSave(false)
+                () => performSave()
             );
         } else {
-            performSave(false);
+            performSave();
         }
     }
 
-    function performSave(overwrite) {
-        // Double-check for existing record
-        const existing = attendance.find(a => a.date === selectedDate);
-        if (existing && !editingExistingId && !overwrite) {
-            // Another tab added it? show warning
-            warningMsg.textContent = `يوجد بالفعل سجل حضور لتاريخ ${formatArabicDate(selectedDate)}. هل تريد استبداله؟`;
-            pendingOverwrite = true;
-            warningModal.classList.remove('hidden');
-            warningModal.classList.add('flex');
-            return;
-        }
+    // ---- Save logic: update existing OR create new, never duplicate ----
+    function performSave() {
+        // Re-fetch latest attendance to avoid race conditions
+        attendance = getAttendance(currentWalletId);
 
-        const newRecord = {
+        const existing = findRecordForDate(selectedDate);
+
+        const recordData = {
             date: selectedDate,
-            sessionId: editingExistingId || Date.now(),
             sessionName: sessionName.trim(),
             records: { ...records },
             updatedAt: Date.now()
         };
 
-        if (editingExistingId) {
-            // Update existing
+        let isUpdate = false;
+
+        if (existing) {
+            // UPDATE existing record for this date — keep original id/createdAt
             const idx = attendance.findIndex(a => a.date === selectedDate);
             if (idx !== -1) {
-                attendance[idx] = { ...attendance[idx], ...newRecord };
-            } else {
-                attendance.push(newRecord);
+                attendance[idx] = {
+                    ...attendance[idx],
+                    ...recordData,
+                    sessionId: attendance[idx].sessionId, // preserve original id
+                    createdAt: attendance[idx].createdAt   // preserve original creation date
+                };
+                isUpdate = true;
             }
         } else {
-            attendance.push(newRecord);
+            // CREATE new record
+            attendance.push({
+                ...recordData,
+                sessionId: Date.now(),
+                createdAt: Date.now()
+            });
+            isUpdate = false;
         }
 
         saveAttendance(currentWalletId, attendance);
-        showToast('تم حفظ سجل الحضور بنجاح ✓', 'success');
+        showToast(isUpdate ? '✓ تم تحديث سجل الحضور' : '✓ تم حفظ سجل الحضور بنجاح', 'success');
+
+        // Reload attendance so editingExistingId reflects new state
+        attendance = getAttendance(currentWalletId);
 
         setTimeout(() => {
             location.href = 'dashboard.html';
@@ -879,7 +873,6 @@ tailwind.config = {
     }
 
     // ---- Confirm modal ----
-    let confirmCallback = null;
     function openConfirm(title, msg, type, callback) {
         confirmTitle.textContent = title;
         confirmMsg.textContent = msg;
@@ -910,28 +903,6 @@ tailwind.config = {
     });
     confirmModal.addEventListener('click', (e) => {
         if (e.target === confirmModal) closeConfirm();
-    });
-
-    // ---- Warning modal ----
-    cancelWarning.addEventListener('click', () => {
-        warningModal.classList.add('hidden');
-        warningModal.classList.remove('flex');
-        pendingOverwrite = false;
-    });
-    overwriteBtn.addEventListener('click', () => {
-        warningModal.classList.add('hidden');
-        warningModal.classList.remove('flex');
-        if (pendingOverwrite) {
-            pendingOverwrite = false;
-            performSave(true);
-        }
-    });
-    warningModal.addEventListener('click', (e) => {
-        if (e.target === warningModal) {
-            warningModal.classList.add('hidden');
-            warningModal.classList.remove('flex');
-            pendingOverwrite = false;
-        }
     });
 
     // ---- Empty states ----
@@ -986,11 +957,6 @@ tailwind.config = {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             if (!confirmModal.classList.contains('hidden')) closeConfirm();
-            else if (!warningModal.classList.contains('hidden')) {
-                warningModal.classList.add('hidden');
-                warningModal.classList.remove('flex');
-                pendingOverwrite = false;
-            }
         }
     });
 
