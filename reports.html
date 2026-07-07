@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>التقارير - مسجد الهدي النبوي</title>
+<title>التقارير - مسجد الهادي النبوي</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -34,6 +34,8 @@ tailwind.config = {
                 "error-container": "#ffdad6",
                 "success": "#1E7D45",
                 "success-container": "#d4f5dd",
+                "warning": "#E67E22",
+                "warning-container": "#ffedd5",
                 "background": "#F5F6F8",
             },
             fontFamily: { "body": ["Cairo", "sans-serif"] },
@@ -79,6 +81,41 @@ tailwind.config = {
     .student-row:hover { background: #f9f9f9; }
     .chip { transition: all 0.15s ease; }
     .chip:hover { transform: translateY(-1px); }
+
+    /* Status pills */
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    .status-pill.present { background: #d4f5dd; color: #1E7D45; }
+    .status-pill.absent { background: #ffdad6; color: #BA1A1A; }
+    .status-pill.late { background: #ffedd5; color: #E67E22; }
+    .status-pill.excused { background: #fef3c7; color: #B45309; }
+
+    /* Analysis bar */
+    .analysis-bar {
+        display: flex;
+        height: 8px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: #e2e2e2;
+    }
+    .analysis-bar > div { transition: width 0.8s ease; }
+
+    .legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        flex-shrink: 0;
+    }
+
     @media print {
         .no-print { display: none !important; }
         body { background: #fff; }
@@ -178,8 +215,10 @@ tailwind.config = {
     const sideName = document.getElementById('sideName');
 
     let currentWalletId = null;
-    let currentFilter = 'all'; // 'week' | 'month' | 'all'
-    let chartInstance = null;
+    let currentFilter = 'all';
+    let lineChart = null;
+    let doughnutChart = null;
+    let stackedChart = null;
 
     // ---- Storage ----
     function getActiveWallet() {
@@ -242,13 +281,31 @@ tailwind.config = {
         return attendance.filter(a => a.date >= cutoffISO);
     }
 
+    // Count stats for a single session
+    function countSessionStats(records) {
+        let present = 0, absent = 0, late = 0, excused = 0;
+        if (records) {
+            Object.values(records).forEach(status => {
+                if (status === 'present') present++;
+                else if (status === 'absent') absent++;
+                else if (status === 'late') late++;
+                else if (status === 'excused') excused++;
+            });
+        }
+        const marked = present + absent + late + excused;
+        // Attendance rate: present + late counts as attended
+        const attendancePct = marked > 0 ? Math.round(((present + late) / marked) * 100) : 0;
+        return { present, absent, late, excused, marked, attendancePct };
+    }
+
     // ---- Compute stats ----
     function computeStats(attendance, students) {
-        let totalPresent = 0, totalAbsent = 0, totalSessions = attendance.length;
-        const studentStats = {}; // { studentId: { present, absent } }
+        let totalPresent = 0, totalAbsent = 0, totalLate = 0, totalExcused = 0;
+        const totalSessions = attendance.length;
+        const studentStats = {};
 
         students.forEach(s => {
-            studentStats[s.id] = { present: 0, absent: 0 };
+            studentStats[s.id] = { present: 0, absent: 0, late: 0, excused: 0 };
         });
 
         attendance.forEach(session => {
@@ -260,46 +317,63 @@ tailwind.config = {
                 } else if (status === 'absent') {
                     totalAbsent++;
                     if (studentStats[sid]) studentStats[sid].absent++;
+                } else if (status === 'late') {
+                    totalLate++;
+                    if (studentStats[sid]) studentStats[sid].late++;
+                } else if (status === 'excused') {
+                    totalExcused++;
+                    if (studentStats[sid]) studentStats[sid].excused++;
                 }
             });
         });
 
-        const totalMarked = totalPresent + totalAbsent;
-        const avgPct = totalMarked > 0 ? Math.round((totalPresent / totalMarked) * 100) : 0;
+        const totalMarked = totalPresent + totalAbsent + totalLate + totalExcused;
+        // Overall attendance rate: present + late counts as attended
+        const avgPct = totalMarked > 0 ? Math.round(((totalPresent + totalLate) / totalMarked) * 100) : 0;
 
-        // Best/worst session
+        // Best/worst session (based on attendancePct)
         let bestSession = null, worstSession = null;
         let bestPct = -1, worstPct = 101;
         attendance.forEach(session => {
-            if (!session.records) return;
-            let p = 0, a = 0;
-            Object.values(session.records).forEach(s => {
-                if (s === 'present') p++;
-                else if (s === 'absent') a++;
-            });
-            const t = p + a;
-            if (t > 0) {
-                const pct = Math.round((p / t) * 100);
-                if (pct > bestPct) { bestPct = pct; bestSession = session; }
-                if (pct < worstPct) { worstPct = pct; worstSession = session; }
+            const s = countSessionStats(session.records);
+            if (s.marked > 0) {
+                if (s.attendancePct > bestPct) { bestPct = s.attendancePct; bestSession = { ...session, stats: s }; }
+                if (s.attendancePct < worstPct) { worstPct = s.attendancePct; worstSession = { ...session, stats: s }; }
             }
         });
 
-        // Top student
+        // Top student (by attendance rate)
         let topStudent = null, topPct = -1;
         students.forEach(s => {
             const st = studentStats[s.id];
-            const t = st.present + st.absent;
+            const t = st.present + st.absent + st.late + st.excused;
             if (t > 0) {
-                const pct = Math.round((st.present / t) * 100);
+                const pct = Math.round(((st.present + st.late) / t) * 100);
                 if (pct > topPct) { topPct = pct; topStudent = s; }
             }
+        });
+
+        // Students with most late arrivals
+        let mostLateStudent = null, mostLateCount = 0;
+        students.forEach(s => {
+            const st = studentStats[s.id];
+            if (st.late > mostLateCount) { mostLateCount = st.late; mostLateStudent = s; }
+        });
+
+        // Students with most excuses
+        let mostExcusedStudent = null, mostExcusedCount = 0;
+        students.forEach(s => {
+            const st = studentStats[s.id];
+            if (st.excused > mostExcusedCount) { mostExcusedCount = st.excused; mostExcusedStudent = s; }
         });
 
         return {
             totalSessions,
             totalPresent,
             totalAbsent,
+            totalLate,
+            totalExcused,
+            totalMarked,
             avgPct,
             bestSession,
             bestPct,
@@ -307,6 +381,10 @@ tailwind.config = {
             worstPct,
             topStudent,
             topPct,
+            mostLateStudent,
+            mostLateCount,
+            mostExcusedStudent,
+            mostExcusedCount,
             studentStats
         };
     }
@@ -334,8 +412,8 @@ tailwind.config = {
             <!-- Header -->
             <section class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 fade-in">
                 <div>
-                    <h2 class="text-headline-lg text-primary font-bold mb-1">التقارير والإحصائيات</h2>
-                    <p class="text-body-md text-on-surface-variant">نظرة شاملة على حضور الطلبة</p>
+                    <h2 class="text-headline-lg text-primary font-bold mb-1">التقارير والتحليلات</h2>
+                    <p class="text-body-md text-on-surface-variant">تحليل شامل لحضور وتأخر وغياب الطلبة</p>
                 </div>
                 <button onclick="exportData()" class="no-print bg-secondary text-white px-5 py-2.5 rounded-xl font-bold shadow-md active:scale-95 transition-transform flex items-center gap-2 self-start">
                     <span class="material-symbols-outlined">download</span>
@@ -358,17 +436,65 @@ tailwind.config = {
                 </div>
             </section>
 
-            <!-- Stats Grid -->
-            <section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 fade-in" style="animation-delay: 0.1s">
-                ${renderStatCard('event_available', 'إجمالي الجلسات', stats.totalSessions, 'primary', 'bg-primary/10')}
-                ${renderStatCard('trending_up', 'متوسط الحضور', stats.avgPct + '%', 'success', 'bg-success/10')}
-                ${renderStatCard('how_to_reg', 'إجمالي الحضور', stats.totalPresent, 'success', 'bg-success/10')}
-                ${renderStatCard('person_off', 'إجمالي الغياب', stats.totalAbsent, 'error', 'bg-error/10')}
+            <!-- Stats Grid (6 cards) -->
+            <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6 fade-in" style="animation-delay: 0.1s">
+                ${renderStatCard('event_available', 'الجلسات', stats.totalSessions, 'primary', 'bg-primary/10')}
+                ${renderStatCard('trending_up', 'نسبة الحضور', stats.avgPct + '%', 'success', 'bg-success/10')}
+                ${renderStatCard('how_to_reg', 'حاضر', stats.totalPresent, 'success', 'bg-success/10')}
+                ${renderStatCard('schedule', 'متأخر', stats.totalLate, 'warning', 'bg-warning/10')}
+                ${renderStatCard('event_busy', 'بعذر', stats.totalExcused, 'secondary', 'bg-secondary/10')}
+                ${renderStatCard('person_off', 'غائب', stats.totalAbsent, 'error', 'bg-error/10')}
             </section>
 
-            <!-- Chart -->
-            <section class="mb-6 fade-in" style="animation-delay: 0.15s">
+            <!-- Overall Distribution Bar -->
+            <section class="mb-6 fade-in" style="animation-delay: 0.13s">
                 <div class="bg-surface-container rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-headline-md text-primary font-bold flex items-center gap-2">
+                            <span class="material-symbols-outlined text-secondary">donut_large</span>
+                            توزيع الحالات
+                        </h4>
+                        <span class="text-xs text-on-surface-variant bg-surface px-2 py-1 rounded-full">${stats.totalMarked} تسجيل</span>
+                    </div>
+                    ${stats.totalMarked > 0 ? `
+                    <div class="analysis-bar mb-3">
+                        ${stats.totalPresent > 0 ? `<div class="bg-success" style="width:${(stats.totalPresent/stats.totalMarked)*100}%" title="حاضر"></div>` : ''}
+                        ${stats.totalLate > 0 ? `<div class="bg-warning" style="width:${(stats.totalLate/stats.totalMarked)*100}%" title="متأخر"></div>` : ''}
+                        ${stats.totalExcused > 0 ? `<div class="bg-secondary" style="width:${(stats.totalExcused/stats.totalMarked)*100}%" title="بعذر"></div>` : ''}
+                        ${stats.totalAbsent > 0 ? `<div class="bg-error" style="width:${(stats.totalAbsent/stats.totalMarked)*100}%" title="غائب"></div>` : ''}
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div class="flex items-center gap-2">
+                            <span class="legend-dot bg-success"></span>
+                            <span class="text-xs text-on-surface-variant">حاضر</span>
+                            <span class="text-xs font-bold text-success mr-auto">${stats.totalPresent} (${Math.round((stats.totalPresent/stats.totalMarked)*100)}%)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="legend-dot bg-warning"></span>
+                            <span class="text-xs text-on-surface-variant">متأخر</span>
+                            <span class="text-xs font-bold text-warning mr-auto">${stats.totalLate} (${Math.round((stats.totalLate/stats.totalMarked)*100)}%)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="legend-dot bg-secondary"></span>
+                            <span class="text-xs text-on-surface-variant">بعذر</span>
+                            <span class="text-xs font-bold text-secondary mr-auto">${stats.totalExcused} (${Math.round((stats.totalExcused/stats.totalMarked)*100)}%)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="legend-dot bg-error"></span>
+                            <span class="text-xs text-on-surface-variant">غائب</span>
+                            <span class="text-xs font-bold text-error mr-auto">${stats.totalAbsent} (${Math.round((stats.totalAbsent/stats.totalMarked)*100)}%)</span>
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-on-surface-variant mt-3 text-center bg-surface rounded-lg py-2">
+                        <span class="font-bold text-success">المتأخرون يُحتسبون حضوراً</span> في نسبة الحضور • الغائبون بعذر يُسجلون بشكل منفصل
+                    </p>
+                    ` : '<p class="text-center text-on-surface-variant text-sm py-4">لا توجد بيانات</p>'}
+                </div>
+            </section>
+
+            <!-- Charts: Line + Doughnut -->
+            <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6 fade-in" style="animation-delay: 0.15s">
+                <div class="lg:col-span-2 bg-surface-container rounded-2xl p-5 shadow-sm">
                     <div class="flex items-center justify-between mb-4">
                         <h4 class="text-headline-md text-primary font-bold flex items-center gap-2">
                             <span class="material-symbols-outlined text-secondary">show_chart</span>
@@ -377,13 +503,37 @@ tailwind.config = {
                         <span class="text-xs text-on-surface-variant bg-surface px-2 py-1 rounded-full">${filtered.length} جلسة</span>
                     </div>
                     <div class="relative" style="height: 260px;">
-                        <canvas id="attendanceChart"></canvas>
+                        <canvas id="attendanceLineChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-surface-container rounded-2xl p-5 shadow-sm">
+                    <h4 class="text-headline-md text-primary font-bold flex items-center gap-2 mb-4">
+                        <span class="material-symbols-outlined text-secondary">pie_chart</span>
+                        التوزيع
+                    </h4>
+                    <div class="relative" style="height: 260px;">
+                        <canvas id="attendanceDoughnut"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Stacked bar chart -->
+            <section class="mb-6 fade-in" style="animation-delay: 0.18s">
+                <div class="bg-surface-container rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-headline-md text-primary font-bold flex items-center gap-2">
+                            <span class="material-symbols-outlined text-secondary">stacked_bar_chart</span>
+                            تفاصيل الحالات لكل جلسة
+                        </h4>
+                    </div>
+                    <div class="relative" style="height: 280px;">
+                        <canvas id="stackedChart"></canvas>
                     </div>
                 </div>
             </section>
 
             <!-- Highlights -->
-            <section class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6 fade-in" style="animation-delay: 0.2s">
+            <section class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6 fade-in" style="animation-delay: 0.22s">
                 ${stats.bestSession ? `
                 <div class="bg-success/10 border border-success/20 rounded-2xl p-4">
                     <div class="flex items-center gap-2 mb-2">
@@ -408,8 +558,26 @@ tailwind.config = {
                         <span class="material-symbols-outlined text-secondary">star</span>
                         <span class="text-label-bold text-secondary">الأكثر التزاماً</span>
                     </div>
-                    <div class="text-headline-md text-primary font-bold truncate">${escapeHtml(stats.topStudent.name)}</div>
+                    <div class="text-sm text-primary font-bold truncate">${escapeHtml(stats.topStudent.name)}</div>
                     <div class="text-xs text-on-surface-variant mt-1">${stats.topPct}% حضور</div>
+                </div>` : ''}
+                ${stats.mostLateStudent ? `
+                <div class="bg-warning/10 border border-warning/20 rounded-2xl p-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="material-symbols-outlined text-warning">schedule</span>
+                        <span class="text-label-bold text-warning">الأكثر تأخراً</span>
+                    </div>
+                    <div class="text-sm text-primary font-bold truncate">${escapeHtml(stats.mostLateStudent.name)}</div>
+                    <div class="text-xs text-on-surface-variant mt-1">${stats.mostLateCount} مرة</div>
+                </div>` : ''}
+                ${stats.mostExcusedStudent ? `
+                <div class="bg-secondary/5 border border-secondary/20 rounded-2xl p-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="material-symbols-outlined text-secondary">event_busy</span>
+                        <span class="text-label-bold text-secondary">الأكثر غياباً بعذر</span>
+                    </div>
+                    <div class="text-sm text-primary font-bold truncate">${escapeHtml(stats.mostExcusedStudent.name)}</div>
+                    <div class="text-xs text-on-surface-variant mt-1">${stats.mostExcusedCount} مرة</div>
                 </div>` : ''}
             </section>
 
@@ -428,8 +596,10 @@ tailwind.config = {
             });
         });
 
-        // Draw chart
-        drawChart(filtered, students);
+        // Draw charts
+        drawLineChart(filtered, students);
+        drawDoughnutChart(stats);
+        drawStackedChart(filtered);
     }
 
     function renderStatCard(icon, label, value, color, bgClass) {
@@ -454,33 +624,29 @@ tailwind.config = {
 
         const sorted = attendance.slice().sort((a, b) => b.date.localeCompare(a.date));
         const items = sorted.map(s => {
-            let p = 0, a = 0;
-            if (s.records) {
-                Object.values(s.records).forEach(st => {
-                    if (st === 'present') p++;
-                    else if (st === 'absent') a++;
-                });
-            }
-            const total = p + a;
-            const pct = total > 0 ? Math.round((p / total) * 100) : 0;
-            const barColor = pct >= 70 ? 'bg-success' : pct >= 40 ? 'bg-secondary' : 'bg-error';
+            const stats = countSessionStats(s.records);
+            const barColor = stats.attendancePct >= 70 ? 'bg-success' : stats.attendancePct >= 40 ? 'bg-secondary' : 'bg-error';
             return `
-                <div class="session-row flex items-center gap-3 py-3 border-b border-outline-variant last:border-0">
-                    <div class="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <span class="material-symbols-outlined text-primary">event</span>
+                <div class="session-row py-3 border-b border-outline-variant last:border-0">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <span class="material-symbols-outlined text-primary">event</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between mb-1">
+                                <div class="text-body-md font-bold text-primary">${formatShortDate(s.date)}</div>
+                                <span class="text-sm font-bold ${stats.attendancePct >= 70 ? 'text-success' : stats.attendancePct >= 40 ? 'text-secondary' : 'text-error'}">${stats.attendancePct}%</span>
+                            </div>
+                            <div class="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+                                <div class="progress-bar h-full ${barColor} rounded-full" style="width: ${stats.attendancePct}%"></div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center justify-between mb-1">
-                            <div class="text-body-md font-bold text-primary">${formatShortDate(s.date)}</div>
-                            <span class="text-sm font-bold ${pct >= 70 ? 'text-success' : pct >= 40 ? 'text-secondary' : 'text-error'}">${pct}%</span>
-                        </div>
-                        <div class="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
-                            <div class="progress-bar h-full ${barColor} rounded-full" style="width: ${pct}%"></div>
-                        </div>
-                        <div class="flex justify-between text-xs text-on-surface-variant mt-1">
-                            <span>${p} حاضر</span>
-                            <span>${a} غائب</span>
-                        </div>
+                    <div class="flex flex-wrap gap-1.5 pr-[52px]">
+                        ${stats.present > 0 ? `<span class="status-pill present"><span class="material-symbols-outlined" style="font-size:12px">check_circle</span>${stats.present}</span>` : ''}
+                        ${stats.late > 0 ? `<span class="status-pill late"><span class="material-symbols-outlined" style="font-size:12px">schedule</span>${stats.late}</span>` : ''}
+                        ${stats.excused > 0 ? `<span class="status-pill excused"><span class="material-symbols-outlined" style="font-size:12px">event_available</span>${stats.excused}</span>` : ''}
+                        ${stats.absent > 0 ? `<span class="status-pill absent"><span class="material-symbols-outlined" style="font-size:12px">cancel</span>${stats.absent}</span>` : ''}
                     </div>
                 </div>
             `;
@@ -510,9 +676,9 @@ tailwind.config = {
 
         // Sort by attendance percentage desc
         const list = students.map(s => {
-            const st = studentStats[s.id] || { present: 0, absent: 0 };
-            const total = st.present + st.absent;
-            const pct = total > 0 ? Math.round((st.present / total) * 100) : 0;
+            const st = studentStats[s.id] || { present: 0, absent: 0, late: 0, excused: 0 };
+            const total = st.present + st.absent + st.late + st.excused;
+            const pct = total > 0 ? Math.round(((st.present + st.late) / total) * 100) : 0;
             return { student: s, ...st, total, pct };
         }).sort((a, b) => b.pct - a.pct || b.present - a.present);
 
@@ -521,22 +687,30 @@ tailwind.config = {
             const textColor = item.pct >= 70 ? 'text-success' : item.pct >= 40 ? 'text-secondary' : item.total === 0 ? 'text-on-surface-variant' : 'text-error';
             const medal = idx === 0 && item.total > 0 ? '<span class="material-symbols-outlined text-secondary text-sm">workspace_premium</span>' : '';
             return `
-                <div class="student-row flex items-center gap-3 py-2.5 border-b border-outline-variant last:border-0">
-                    <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <span class="text-primary font-bold text-xs">${escapeHtml(getInitials(item.student.name))}</span>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-1.5 mb-1">
-                            ${medal}
-                            <div class="text-body-md font-semibold text-primary truncate">${escapeHtml(item.student.name)}</div>
+                <div class="student-row py-2.5 border-b border-outline-variant last:border-0">
+                    <div class="flex items-center gap-3 mb-1.5">
+                        <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <span class="text-primary font-bold text-xs">${escapeHtml(getInitials(item.student.name))}</span>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <div class="flex-1 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
-                                <div class="progress-bar h-full ${barColor} rounded-full" style="width: ${item.pct}%"></div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-1.5 mb-1">
+                                ${medal}
+                                <div class="text-body-md font-semibold text-primary truncate">${escapeHtml(item.student.name)}</div>
                             </div>
-                            <span class="text-xs font-bold ${textColor} w-10 text-left">${item.total > 0 ? item.pct + '%' : '—'}</span>
+                            <div class="flex items-center gap-2">
+                                <div class="flex-1 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+                                    <div class="progress-bar h-full ${barColor} rounded-full" style="width: ${item.pct}%"></div>
+                                </div>
+                                <span class="text-xs font-bold ${textColor} w-10 text-left">${item.total > 0 ? item.pct + '%' : '—'}</span>
+                            </div>
                         </div>
-                        <div class="text-xs text-on-surface-variant mt-0.5">${item.present} حاضر • ${item.absent} غائب</div>
+                    </div>
+                    <div class="flex flex-wrap gap-1 pr-[44px]">
+                        ${item.present > 0 ? `<span class="status-pill present" style="font-size:10px;padding:1px 6px"><span class="material-symbols-outlined" style="font-size:10px">check_circle</span>${item.present}</span>` : ''}
+                        ${item.late > 0 ? `<span class="status-pill late" style="font-size:10px;padding:1px 6px"><span class="material-symbols-outlined" style="font-size:10px">schedule</span>${item.late}</span>` : ''}
+                        ${item.excused > 0 ? `<span class="status-pill excused" style="font-size:10px;padding:1px 6px"><span class="material-symbols-outlined" style="font-size:10px">event_available</span>${item.excused}</span>` : ''}
+                        ${item.absent > 0 ? `<span class="status-pill absent" style="font-size:10px;padding:1px 6px"><span class="material-symbols-outlined" style="font-size:10px">cancel</span>${item.absent}</span>` : ''}
+                        ${item.total === 0 ? `<span class="text-[10px] text-on-surface-variant/60">لا سجلات</span>` : ''}
                     </div>
                 </div>
             `;
@@ -618,24 +792,17 @@ tailwind.config = {
         `;
     }
 
-    // ---- Chart ----
-    function drawChart(attendance, students) {
-        const canvas = document.getElementById('attendanceChart');
+    // ---- Charts ----
+    function drawLineChart(attendance, students) {
+        const canvas = document.getElementById('attendanceLineChart');
         if (!canvas) return;
-        if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+        if (lineChart) { lineChart.destroy(); lineChart = null; }
 
         const sorted = attendance.slice().sort((a, b) => a.date.localeCompare(b.date));
         const labels = sorted.map(s => formatShortDate(s.date));
         const data = sorted.map(s => {
-            let p = 0, a = 0;
-            if (s.records) {
-                Object.values(s.records).forEach(st => {
-                    if (st === 'present') p++;
-                    else if (st === 'absent') a++;
-                });
-            }
-            const t = p + a;
-            return t > 0 ? Math.round((p / t) * 100) : 0;
+            const st = countSessionStats(s.records);
+            return st.attendancePct;
         });
 
         const ctx = canvas.getContext('2d');
@@ -643,7 +810,7 @@ tailwind.config = {
         gradient.addColorStop(0, 'rgba(30, 125, 69, 0.3)');
         gradient.addColorStop(1, 'rgba(30, 125, 69, 0)');
 
-        chartInstance = new Chart(canvas, {
+        lineChart = new Chart(canvas, {
             type: 'line',
             data: {
                 labels: labels,
@@ -705,6 +872,154 @@ tailwind.config = {
         });
     }
 
+    function drawDoughnutChart(stats) {
+        const canvas = document.getElementById('attendanceDoughnut');
+        if (!canvas) return;
+        if (doughnutChart) { doughnutChart.destroy(); doughnutChart = null; }
+
+        if (stats.totalMarked === 0) return;
+
+        doughnutChart = new Chart(canvas, {
+            type: 'doughnut',
+            data: {
+                labels: ['حاضر', 'متأخر', 'بعذر', 'غائب'],
+                datasets: [{
+                    data: [stats.totalPresent, stats.totalLate, stats.totalExcused, stats.totalAbsent],
+                    backgroundColor: ['#1E7D45', '#E67E22', '#C9A23A', '#BA1A1A'],
+                    borderColor: '#fff',
+                    borderWidth: 3,
+                    hoverOffset: 8,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            font: { family: 'Cairo', size: 11, weight: '600' },
+                            color: '#44474d',
+                            padding: 12,
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#0B1D3A',
+                        titleFont: { family: 'Cairo', size: 13 },
+                        bodyFont: { family: 'Cairo', size: 13, weight: 'bold' },
+                        padding: 12,
+                        cornerRadius: 10,
+                        callbacks: {
+                            label: (ctx) => {
+                                const pct = Math.round((ctx.parsed / stats.totalMarked) * 100);
+                                return `${ctx.label}: ${ctx.parsed} (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function drawStackedChart(attendance) {
+        const canvas = document.getElementById('stackedChart');
+        if (!canvas) return;
+        if (stackedChart) { stackedChart.destroy(); stackedChart = null; }
+
+        const sorted = attendance.slice().sort((a, b) => a.date.localeCompare(b.date));
+        const labels = sorted.map(s => formatShortDate(s.date));
+        const presentData = [], lateData = [], excusedData = [], absentData = [];
+
+        sorted.forEach(s => {
+            const st = countSessionStats(s.records);
+            presentData.push(st.present);
+            lateData.push(st.late);
+            excusedData.push(st.excused);
+            absentData.push(st.absent);
+        });
+
+        stackedChart = new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'حاضر',
+                        data: presentData,
+                        backgroundColor: '#1E7D45',
+                        borderRadius: 4,
+                    },
+                    {
+                        label: 'متأخر',
+                        data: lateData,
+                        backgroundColor: '#E67E22',
+                        borderRadius: 4,
+                    },
+                    {
+                        label: 'بعذر',
+                        data: excusedData,
+                        backgroundColor: '#C9A23A',
+                        borderRadius: 4,
+                    },
+                    {
+                        label: 'غائب',
+                        data: absentData,
+                        backgroundColor: '#BA1A1A',
+                        borderRadius: 4,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            font: { family: 'Cairo', size: 11, weight: '600' },
+                            color: '#44474d',
+                            padding: 12,
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#0B1D3A',
+                        titleFont: { family: 'Cairo', size: 13 },
+                        bodyFont: { family: 'Cairo', size: 12 },
+                        padding: 12,
+                        cornerRadius: 10,
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        ticks: {
+                            font: { family: 'Cairo', size: 11 },
+                            color: '#44474d',
+                            maxRotation: 45,
+                            minRotation: 0
+                        },
+                        grid: { display: false }
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1,
+                            font: { family: 'Cairo', size: 11 },
+                            color: '#44474d'
+                        },
+                        grid: { color: 'rgba(0,0,0,0.05)' }
+                    }
+                }
+            }
+        });
+    }
+
     // ---- Export ----
     window.exportData = function() {
         const wallet = getActiveWallet();
@@ -718,37 +1033,31 @@ tailwind.config = {
 
         const stats = computeStats(attendance, students);
         let csv = '\uFEFF'; // BOM for Arabic
-        csv += `تقرير حضور - مسجد الهادي النبوي\n`;
+        csv += `تقرير حضور وتحليلات - مسجد الهادي النبوي\n`;
         csv += `المحفظ: ${wallet.name}\n`;
         csv += `تاريخ التقرير: ${formatArabicDate(getTodayISO())}\n\n`;
         csv += `إحصائيات عامة\n`;
         csv += `إجمالي الجلسات,${stats.totalSessions}\n`;
         csv += `متوسط نسبة الحضور,${stats.avgPct}%\n`;
         csv += `إجمالي الحضور,${stats.totalPresent}\n`;
+        csv += `إجمالي المتأخرين,${stats.totalLate}\n`;
+        csv += `إجمالي الغياب بعذر,${stats.totalExcused}\n`;
         csv += `إجمالي الغياب,${stats.totalAbsent}\n\n`;
 
         csv += `تفاصيل الجلسات\n`;
-        csv += `التاريخ,حاضر,غائب,النسبة\n`;
+        csv += `التاريخ,حاضر,متأخر,بعذر,غائب,نسبة الحضور\n`;
         attendance.slice().sort((a,b) => b.date.localeCompare(a.date)).forEach(s => {
-            let p = 0, a = 0;
-            if (s.records) {
-                Object.values(s.records).forEach(st => {
-                    if (st === 'present') p++;
-                    else if (st === 'absent') a++;
-                });
-            }
-            const t = p + a;
-            const pct = t > 0 ? Math.round((p/t)*100) : 0;
-            csv += `${s.date},${p},${a},${pct}%\n`;
+            const st = countSessionStats(s.records);
+            csv += `${s.date},${st.present},${st.late},${st.excused},${st.absent},${st.attendancePct}%\n`;
         });
 
         csv += `\nتفاصيل الطلبة\n`;
-        csv += `الاسم,حاضر,غائب,النسبة\n`;
+        csv += `الاسم,حاضر,متأخر,بعذر,غائب,النسبة\n`;
         students.forEach(s => {
-            const st = stats.studentStats[s.id] || { present: 0, absent: 0 };
-            const t = st.present + st.absent;
-            const pct = t > 0 ? Math.round((st.present/t)*100) : 0;
-            csv += `${s.name},${st.present},${st.absent},${pct}%\n`;
+            const st = stats.studentStats[s.id] || { present: 0, absent: 0, late: 0, excused: 0 };
+            const t = st.present + st.absent + st.late + st.excused;
+            const pct = t > 0 ? Math.round(((st.present + st.late) / t) * 100) : 0;
+            csv += `${s.name},${st.present},${st.late},${st.excused},${st.absent},${pct}%\n`;
         });
 
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
