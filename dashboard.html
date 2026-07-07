@@ -30,6 +30,8 @@ tailwind.config = {
                 "error-container": "#ffdad6",
                 "success": "#1E7D45",
                 "success-container": "#d4f5dd",
+                "warning": "#E67E22",
+                "warning-container": "#ffedd5",
             },
             fontFamily: {
                 "body": ["Cairo", "sans-serif"],
@@ -66,6 +68,40 @@ tailwind.config = {
     }
     .menu-item { transition: all 0.2s ease; }
     .menu-item:hover { background: #f3f3f4; }
+
+    /* Status pills */
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+    }
+    .status-pill.present { background: #d4f5dd; color: #1E7D45; }
+    .status-pill.absent { background: #ffdad6; color: #BA1A1A; }
+    .status-pill.late { background: #ffedd5; color: #E67E22; }
+    .status-pill.excused { background: #fef3c7; color: #B45309; }
+
+    /* Analysis bar */
+    .analysis-bar {
+        display: flex;
+        height: 8px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: #e2e2e2;
+    }
+    .analysis-bar > div { transition: width 0.8s ease; }
+
+    /* Legend dot */
+    .legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        flex-shrink: 0;
+    }
 </style>
 </head>
 <body class="text-on-surface antialiased min-h-screen islamic-pattern flex flex-col md:flex-row relative pb-20 md:pb-0">
@@ -220,6 +256,27 @@ tailwind.config = {
         return `${y}-${m}-${day}`;
     }
 
+    // Count session stats (returns {present, absent, late, excused, total, marked})
+    function countSessionStats(records) {
+        let present = 0, absent = 0, late = 0, excused = 0;
+        if (records) {
+            Object.values(records).forEach(status => {
+                if (status === 'present') present++;
+                else if (status === 'absent') absent++;
+                else if (status === 'late') late++;
+                else if (status === 'excused') excused++;
+            });
+        }
+        return {
+            present, absent, late, excused,
+            marked: present + absent + late + excused,
+            // Attendance rate: present + late counts as attended; excused is neutral
+            attendancePct: (present + absent + late + excused) > 0
+                ? Math.round(((present + late) / (present + absent + late + excused)) * 100)
+                : 0
+        };
+    }
+
     // ---- Render ----
     function render() {
         const wallet = getActiveWallet();
@@ -238,27 +295,24 @@ tailwind.config = {
 
         // Today's attendance
         const todaySession = attendance.find(a => a.date === today);
-        let presentToday = 0;
-        let absentToday = 0;
+        let todayStats = { present: 0, absent: 0, late: 0, excused: 0, marked: 0, attendancePct: 0 };
         let todayRecords = [];
 
         if (todaySession && todaySession.records) {
-            Object.entries(todaySession.records).forEach(([sid, status]) => {
-                if (status === 'present') presentToday++;
-                else if (status === 'absent') absentToday++;
-            });
+            todayStats = countSessionStats(todaySession.records);
             todayRecords = students
                 .filter(s => todaySession.records[s.id] !== undefined)
                 .map(s => ({ student: s, status: todaySession.records[s.id] }));
         }
 
-        // If no session today, count unmarked as absent
         const unmarkedToday = todaySession ? 0 : students.length;
 
         // Stats
         const totalStudents = students.length;
         const totalSessions = attendance.length;
-        const presentPct = totalStudents > 0 ? Math.round((presentToday / totalStudents) * 100) : 0;
+
+        // Overall analytics across all sessions
+        const overallStats = computeOverallStats(attendance, students);
 
         // Recent sessions (last 5)
         const recentSessions = attendance
@@ -285,21 +339,24 @@ tailwind.config = {
 
             ${totalStudents === 0 ? renderEmptyState() : `
             <!-- Stats Grid -->
-            <section class="mb-8 fade-in" style="animation-delay: 0.1s">
+            <section class="mb-6 fade-in" style="animation-delay: 0.1s">
                 <div class="flex items-center justify-between mb-4">
                     <h4 class="text-headline-md text-primary font-bold">إحصائيات سريعة</h4>
                     <span class="text-xs text-on-surface-variant bg-surface-container px-2 py-1 rounded-full">اليوم</span>
                 </div>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                     ${renderStatCard('group', 'عدد الطلبة', totalStudents, 'primary', 'bg-primary/10')}
-                    ${renderStatCard('how_to_reg', 'حاضر اليوم', presentToday, 'success', 'bg-success/10')}
-                    ${renderStatCard('person_off', 'غائب اليوم', absentToday + unmarkedToday, 'error', 'bg-error/10')}
+                    ${renderStatCard('how_to_reg', 'حاضر اليوم', todayStats.present, 'success', 'bg-success/10')}
+                    ${renderStatCard('person_off', 'غائب اليوم', todayStats.absent + unmarkedToday, 'error', 'bg-error/10')}
                     ${renderStatCard('event_available', 'جلسات الحضور', totalSessions, 'secondary', 'bg-secondary/10')}
                 </div>
             </section>
 
-            <!-- Attendance Progress (if today's session exists) -->
-            ${todaySession ? renderTodayProgress(presentToday, absentToday, unmarkedToday, totalStudents, presentPct) : ''}
+            <!-- Today's Detailed Breakdown (includes late & excused) -->
+            ${todaySession ? renderTodayBreakdown(todayStats, unmarkedToday, totalStudents) : ''}
+
+            <!-- Overall Analytics (across all sessions) -->
+            ${totalSessions > 0 ? renderOverallAnalytics(overallStats, totalStudents) : ''}
 
             <!-- Primary Actions -->
             <section class="flex flex-col gap-3 mb-8 fade-in" style="animation-delay: 0.2s">
@@ -322,6 +379,78 @@ tailwind.config = {
         `;
     }
 
+    // Compute overall stats across all attendance sessions
+    function computeOverallStats(attendance, students) {
+        let totalPresent = 0, totalAbsent = 0, totalLate = 0, totalExcused = 0;
+        let totalMarked = 0;
+
+        // Per-student counters
+        const perStudent = {};
+        students.forEach(s => {
+            perStudent[s.id] = { present: 0, absent: 0, late: 0, excused: 0, total: 0 };
+        });
+
+        attendance.forEach(session => {
+            if (!session.records) return;
+            Object.entries(session.records).forEach(([sid, status]) => {
+                if (status === 'present') { totalPresent++; if (perStudent[sid]) perStudent[sid].present++; }
+                else if (status === 'absent') { totalAbsent++; if (perStudent[sid]) perStudent[sid].absent++; }
+                else if (status === 'late') { totalLate++; if (perStudent[sid]) perStudent[sid].late++; }
+                else if (status === 'excused') { totalExcused++; if (perStudent[sid]) perStudent[sid].excused++; }
+                totalMarked++;
+                if (perStudent[sid]) perStudent[sid].total++;
+            });
+        });
+
+        const overallPct = totalMarked > 0 ? Math.round(((totalPresent + totalLate) / totalMarked) * 100) : 0;
+
+        // Top students by attendance
+        const topStudents = Object.entries(perStudent)
+            .filter(([_, data]) => data.total > 0)
+            .map(([sid, data]) => {
+                const student = students.find(s => String(s.id) === String(sid));
+                const pct = data.total > 0 ? Math.round(((data.present + data.late) / data.total) * 100) : 0;
+                return { student, ...data, pct };
+            })
+            .sort((a, b) => b.pct - a.pct || b.total - a.total)
+            .slice(0, 5);
+
+        // Students with most absences
+        const mostAbsent = Object.entries(perStudent)
+            .filter(([_, data]) => data.absent > 0)
+            .map(([sid, data]) => {
+                const student = students.find(s => String(s.id) === String(sid));
+                return { student, ...data };
+            })
+            .sort((a, b) => b.absent - a.absent)
+            .slice(0, 5);
+
+        // Students with most late arrivals
+        const mostLate = Object.entries(perStudent)
+            .filter(([_, data]) => data.late > 0)
+            .map(([sid, data]) => {
+                const student = students.find(s => String(s.id) === String(sid));
+                return { student, ...data };
+            })
+            .sort((a, b) => b.late - a.late)
+            .slice(0, 5);
+
+        // Students with most excuses
+        const mostExcused = Object.entries(perStudent)
+            .filter(([_, data]) => data.excused > 0)
+            .map(([sid, data]) => {
+                const student = students.find(s => String(s.id) === String(sid));
+                return { student, ...data };
+            })
+            .sort((a, b) => b.excused - a.excused)
+            .slice(0, 5);
+
+        return {
+            totalPresent, totalAbsent, totalLate, totalExcused, totalMarked, overallPct,
+            topStudents, mostAbsent, mostLate, mostExcused
+        };
+    }
+
     function renderStatCard(icon, label, value, color, bgClass) {
         return `
             <div class="stat-card bg-surface-container rounded-xl p-4 shadow-sm border-t-2 border-t-${color} flex flex-col items-center justify-center relative overflow-hidden">
@@ -334,54 +463,204 @@ tailwind.config = {
         `;
     }
 
-    function renderTodayProgress(present, absent, unmarked, total, pct) {
+    // Today's detailed breakdown — includes late & excused
+    function renderTodayBreakdown(stats, unmarked, total) {
         const circumference = 2 * Math.PI * 36;
+        const pct = stats.attendancePct;
         const offset = circumference - (pct / 100) * circumference;
+
         return `
-            <section class="mb-8 fade-in" style="animation-delay: 0.15s">
-                <div class="bg-surface-container rounded-2xl p-5 shadow-sm flex items-center gap-5">
-                    <div class="relative flex-shrink-0">
-                        <svg width="96" height="96" class="-rotate-90">
-                            <circle cx="48" cy="48" r="36" stroke="#e2e2e2" stroke-width="8" fill="none"/>
-                            <circle cx="48" cy="48" r="36" stroke="#1E7D45" stroke-width="8" fill="none"
-                                stroke-dasharray="${circumference}"
-                                stroke-dashoffset="${offset}"
-                                stroke-linecap="round"
-                                class="progress-ring"/>
-                        </svg>
-                        <div class="absolute inset-0 flex flex-col items-center justify-center">
-                            <span class="text-headline-md text-primary font-bold">${pct}%</span>
-                            <span class="text-[10px] text-on-surface-variant">حضور</span>
-                        </div>
+            <section class="mb-6 fade-in" style="animation-delay: 0.15s">
+                <div class="bg-surface-container rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-headline-md text-primary font-bold flex items-center gap-2">
+                            <span class="material-symbols-outlined text-secondary">today</span>
+                            تفاصيل حضور اليوم
+                        </h4>
+                        <span class="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-bold">${stats.marked}/${total} مسجَّل</span>
                     </div>
-                    <div class="flex-1">
-                        <h4 class="text-headline-md text-primary font-bold mb-2">نسبة حضور اليوم</h4>
-                        <div class="space-y-1.5">
+
+                    <div class="flex items-center gap-5">
+                        <!-- Progress ring -->
+                        <div class="relative flex-shrink-0">
+                            <svg width="110" height="110" class="-rotate-90">
+                                <circle cx="55" cy="55" r="42" stroke="#e2e2e2" stroke-width="8" fill="none"/>
+                                <circle cx="55" cy="55" r="42" stroke="#1E7D45" stroke-width="8" fill="none"
+                                    stroke-dasharray="${2 * Math.PI * 42}"
+                                    stroke-dashoffset="${2 * Math.PI * 42 - (pct / 100) * 2 * Math.PI * 42}"
+                                    stroke-linecap="round"
+                                    class="progress-ring"/>
+                            </svg>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                <span class="text-headline-md text-primary font-bold">${pct}%</span>
+                                <span class="text-[10px] text-on-surface-variant">حضور</span>
+                            </div>
+                        </div>
+
+                        <!-- Legend -->
+                        <div class="flex-1 space-y-2">
                             <div class="flex items-center justify-between text-sm">
                                 <span class="flex items-center gap-2 text-on-surface-variant">
-                                    <span class="w-2 h-2 rounded-full bg-success"></span>
+                                    <span class="legend-dot bg-success"></span>
                                     حاضر
                                 </span>
-                                <span class="font-bold text-primary">${present}</span>
+                                <span class="font-bold text-success">${stats.present}</span>
                             </div>
                             <div class="flex items-center justify-between text-sm">
                                 <span class="flex items-center gap-2 text-on-surface-variant">
-                                    <span class="w-2 h-2 rounded-full bg-error"></span>
+                                    <span class="legend-dot bg-warning"></span>
+                                    متأخر
+                                </span>
+                                <span class="font-bold text-warning">${stats.late}</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="flex items-center gap-2 text-on-surface-variant">
+                                    <span class="legend-dot bg-secondary"></span>
+                                    غائب بعذر
+                                </span>
+                                <span class="font-bold text-secondary">${stats.excused}</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="flex items-center gap-2 text-on-surface-variant">
+                                    <span class="legend-dot bg-error"></span>
                                     غائب
                                 </span>
-                                <span class="font-bold text-primary">${absent + unmarked}</span>
+                                <span class="font-bold text-error">${stats.absent}</span>
                             </div>
-                            <div class="flex items-center justify-between text-sm">
+                            ${unmarked > 0 ? `
+                            <div class="flex items-center justify-between text-sm pt-2 border-t border-outline-variant">
                                 <span class="flex items-center gap-2 text-on-surface-variant">
-                                    <span class="w-2 h-2 rounded-full bg-outline-variant"></span>
+                                    <span class="legend-dot bg-outline-variant"></span>
                                     لم يُسجَّل
                                 </span>
-                                <span class="font-bold text-primary">${unmarked}</span>
+                                <span class="font-bold text-on-surface-variant">${unmarked}</span>
                             </div>
+                            ` : ''}
                         </div>
+                    </div>
+
+                    <!-- Visual bar -->
+                    ${stats.marked > 0 ? `
+                    <div class="mt-4 pt-4 border-t border-outline-variant">
+                        <div class="analysis-bar">
+                            ${stats.present > 0 ? `<div class="bg-success" style="width:${(stats.present/stats.marked)*100}%" title="حاضر"></div>` : ''}
+                            ${stats.late > 0 ? `<div class="bg-warning" style="width:${(stats.late/stats.marked)*100}%" title="متأخر"></div>` : ''}
+                            ${stats.excused > 0 ? `<div class="bg-secondary" style="width:${(stats.excused/stats.marked)*100}%" title="بعذر"></div>` : ''}
+                            ${stats.absent > 0 ? `<div class="bg-error" style="width:${(stats.absent/stats.marked)*100}%" title="غائب"></div>` : ''}
+                        </div>
+                        <p class="text-[11px] text-on-surface-variant mt-2 text-center">
+                            <span class="font-bold text-success">المتأخرون يُحتسبون حضوراً</span> • الغائبون بعذر يُسجلون بشكل منفصل
+                        </p>
+                    </div>
+                    ` : ''}
+                </div>
+            </section>
+        `;
+    }
+
+    // Overall analytics section
+    function renderOverallAnalytics(overall, totalStudents) {
+        const { totalPresent, totalAbsent, totalLate, totalExcused, totalMarked, overallPct, topStudents, mostAbsent, mostLate, mostExcused } = overall;
+
+        return `
+            <section class="mb-6 fade-in" style="animation-delay: 0.18s">
+                <div class="bg-surface-container rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-headline-md text-primary font-bold flex items-center gap-2">
+                            <span class="material-symbols-outlined text-secondary">analytics</span>
+                            تحليل شامل
+                        </h4>
+                        <span class="text-xs text-on-surface-variant bg-surface px-2 py-1 rounded-full">جميع الجلسات</span>
+                    </div>
+
+                    <!-- Overall stats grid -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                        <div class="bg-success/5 border border-success/20 rounded-xl p-3 text-center">
+                            <div class="text-xl font-bold text-success">${totalPresent}</div>
+                            <div class="text-[10px] text-on-surface-variant font-bold mt-0.5">إجمالي الحضور</div>
+                        </div>
+                        <div class="bg-warning/5 border border-warning/20 rounded-xl p-3 text-center">
+                            <div class="text-xl font-bold text-warning">${totalLate}</div>
+                            <div class="text-[10px] text-on-surface-variant font-bold mt-0.5">إجمالي التأخر</div>
+                        </div>
+                        <div class="bg-secondary/5 border border-secondary/20 rounded-xl p-3 text-center">
+                            <div class="text-xl font-bold text-secondary">${totalExcused}</div>
+                            <div class="text-[10px] text-on-surface-variant font-bold mt-0.5">إجمالي الغياب بعذر</div>
+                        </div>
+                        <div class="bg-error/5 border border-error/20 rounded-xl p-3 text-center">
+                            <div class="text-xl font-bold text-error">${totalAbsent}</div>
+                            <div class="text-[10px] text-on-surface-variant font-bold mt-0.5">إجمالي الغياب</div>
+                        </div>
+                    </div>
+
+                    <!-- Overall progress bar -->
+                    <div class="mb-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-on-surface-variant">متوسط نسبة الحضور العامة</span>
+                            <span class="text-sm font-bold ${overallPct >= 70 ? 'text-success' : overallPct >= 40 ? 'text-secondary' : 'text-error'}">${overallPct}%</span>
+                        </div>
+                        <div class="analysis-bar">
+                            ${totalPresent > 0 ? `<div class="bg-success" style="width:${(totalPresent/totalMarked)*100}%" title="حاضر"></div>` : ''}
+                            ${totalLate > 0 ? `<div class="bg-warning" style="width:${(totalLate/totalMarked)*100}%" title="متأخر"></div>` : ''}
+                            ${totalExcused > 0 ? `<div class="bg-secondary" style="width:${(totalExcused/totalMarked)*100}%" title="بعذر"></div>` : ''}
+                            ${totalAbsent > 0 ? `<div class="bg-error" style="width:${(totalAbsent/totalMarked)*100}%" title="غائب"></div>` : ''}
+                        </div>
+                        <div class="flex flex-wrap gap-3 mt-2 text-[10px] text-on-surface-variant">
+                            <span class="flex items-center gap-1"><span class="legend-dot bg-success" style="width:8px;height:8px"></span>حاضر</span>
+                            <span class="flex items-center gap-1"><span class="legend-dot bg-warning" style="width:8px;height:8px"></span>متأخر</span>
+                            <span class="flex items-center gap-1"><span class="legend-dot bg-secondary" style="width:8px;height:8px"></span>بعذر</span>
+                            <span class="flex items-center gap-1"><span class="legend-dot bg-error" style="width:8px;height:8px"></span>غائب</span>
+                        </div>
+                    </div>
+
+                    <!-- Insights grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        ${renderInsightList('star', 'الأكثر التزاماً', 'text-success', 'bg-success/5', topStudents, s => `<span class="text-xs font-bold text-success">${s.pct}%</span> <span class="text-[10px] text-on-surface-variant">(${s.present + s.late}/${s.total})</span>`)}
+                        ${renderInsightList('schedule', 'الأكثر تأخراً', 'text-warning', 'bg-warning/5', mostLate, s => `<span class="text-xs font-bold text-warning">${s.late} مرة</span>`)}
+                        ${renderInsightList('event_busy', 'الأكثر غياباً بعذر', 'text-secondary', 'bg-secondary/5', mostExcused, s => `<span class="text-xs font-bold text-secondary">${s.excused} مرة</span>`)}
+                        ${renderInsightList('person_off', 'الأكثر غياباً', 'text-error', 'bg-error/5', mostAbsent, s => `<span class="text-xs font-bold text-error">${s.absent} مرة</span>`)}
                     </div>
                 </div>
             </section>
+        `;
+    }
+
+    function renderInsightList(icon, title, color, bgClass, items, renderExtra) {
+        if (items.length === 0) {
+            return `
+                <div class="${bgClass} border border-outline-variant/60 rounded-xl p-3">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="material-symbols-outlined ${color} text-base">${icon}</span>
+                        <h5 class="text-xs font-bold text-on-surface-variant">${title}</h5>
+                    </div>
+                    <p class="text-[11px] text-on-surface-variant/70 text-center py-2">لا توجد بيانات</p>
+                </div>
+            `;
+        }
+
+        const rows = items.map(item => {
+            if (!item.student) return '';
+            return `
+                <div class="flex items-center justify-between py-1.5 border-b border-outline-variant/50 last:border-0">
+                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                        <div class="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <span class="text-primary font-bold text-[10px]">${escapeHtml(getInitials(item.student.name))}</span>
+                        </div>
+                        <span class="text-xs font-semibold text-primary truncate">${escapeHtml(item.student.name)}</span>
+                    </div>
+                    ${renderExtra(item)}
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="${bgClass} border border-outline-variant/60 rounded-xl p-3">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="material-symbols-outlined ${color} text-base">${icon}</span>
+                    <h5 class="text-xs font-bold text-on-surface-variant">${title}</h5>
+                </div>
+                <div>${rows}</div>
+            </div>
         `;
     }
 
@@ -417,29 +696,27 @@ tailwind.config = {
         }
 
         const items = sessions.map(s => {
-            let present = 0, absent = 0;
-            if (s.records) {
-                Object.values(s.records).forEach(status => {
-                    if (status === 'present') present++;
-                    else if (status === 'absent') absent++;
-                });
-            }
-            const total = present + absent;
-            const pct = total > 0 ? Math.round((present / total) * 100) : 0;
+            const stats = countSessionStats(s.records);
             return `
-                <div class="flex items-center justify-between py-3 border-b border-outline-variant last:border-0">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                            <span class="material-symbols-outlined text-primary">event</span>
+                <div class="py-3 border-b border-outline-variant last:border-0">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-primary">event</span>
+                            </div>
+                            <div>
+                                <div class="text-body-md font-semibold text-primary">${formatShortDate(s.date)}</div>
+                                <div class="text-xs text-on-surface-variant">${stats.marked} مسجَّل</div>
+                            </div>
                         </div>
-                        <div>
-                            <div class="text-body-md font-semibold text-primary">${formatShortDate(s.date)}</div>
-                            <div class="text-xs text-on-surface-variant">${present} حاضر • ${absent} غائب</div>
-                        </div>
+                        <span class="text-sm font-bold ${stats.attendancePct >= 70 ? 'text-success' : stats.attendancePct >= 40 ? 'text-secondary' : 'text-error'}">${stats.attendancePct}%</span>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-sm font-bold ${pct >= 70 ? 'text-success' : pct >= 40 ? 'text-secondary' : 'text-error'}">${pct}%</span>
-                        <span class="material-symbols-outlined text-outline-variant rtl:-scale-x-100">arrow_forward_ios</span>
+                    <!-- Status pills -->
+                    <div class="flex flex-wrap gap-1.5 pr-[52px]">
+                        ${stats.present > 0 ? `<span class="status-pill present"><span class="material-symbols-outlined" style="font-size:12px">check_circle</span>${stats.present} حاضر</span>` : ''}
+                        ${stats.late > 0 ? `<span class="status-pill late"><span class="material-symbols-outlined" style="font-size:12px">schedule</span>${stats.late} متأخر</span>` : ''}
+                        ${stats.excused > 0 ? `<span class="status-pill excused"><span class="material-symbols-outlined" style="font-size:12px">event_available</span>${stats.excused} بعذر</span>` : ''}
+                        ${stats.absent > 0 ? `<span class="status-pill absent"><span class="material-symbols-outlined" style="font-size:12px">cancel</span>${stats.absent} غائب</span>` : ''}
                     </div>
                 </div>
             `;
@@ -552,12 +829,10 @@ tailwind.config = {
     // Initial render
     render();
 
-    // Refresh when page becomes visible (in case data changed in another tab)
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) render();
     });
 
-    // Storage event for cross-tab sync
     window.addEventListener('storage', () => render());
 })();
 </script>
