@@ -458,29 +458,28 @@ padding:8px 0;
         btnLabel.textContent = 'جاري الحفظ...';
 
         setTimeout(() => {
-            // Check if a wallet with the same name already exists (case-insensitive)
-            const existingIndex = wallets.findIndex(w => w.name.trim().toLowerCase() === name.toLowerCase());
-            let activeId = localStorage.getItem("activeWalletId");
+            const existingIndex = wallets.findIndex(
+    w => w.name.trim().toLowerCase() === name.toLowerCase()
+);
 
-            const wallet = wallets.find(w => String(w.id) === activeId);
-            
-            if (wallet) {
-                wallet.name = name;
-                wallet.startDate = dateVal;
-            
-                syncWallets();
-                renderWallets();
-                showToast("تم تعديل البيانات", "success");
-            } else {
-                // --- CREATE NEW USER ---
-                const newWallet = {
-                    id: Date.now(),
-                    name: name,
-                    startDate: dateVal
-                };
-                wallets.push(newWallet);
-                activeId = newWallet.id;
-                showToast('تم حفظ المحفظ بنجاح', 'success');
+let activeId;
+
+if (existingIndex !== -1) {
+    wallets[existingIndex].startDate = dateVal;
+    activeId = wallets[existingIndex].id;
+
+    showToast("تم تحديث بيانات المحفظ", "success");
+} else {
+    const newWallet = {
+        id: Date.now(),
+        name: name,
+        startDate: dateVal
+    };
+
+    wallets.push(newWallet);
+    activeId = newWallet.id;
+
+    showToast("تم حفظ المحفظ بنجاح", "success");
             }
             
             syncWallets(); // Save to localStorage
