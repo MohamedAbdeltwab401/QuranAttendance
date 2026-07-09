@@ -460,13 +460,18 @@ padding:8px 0;
         setTimeout(() => {
             // Check if a wallet with the same name already exists (case-insensitive)
             const existingIndex = wallets.findIndex(w => w.name.trim().toLowerCase() === name.toLowerCase());
-            let activeId;
+            const activeId = localStorage.getItem("activeWalletId");
 
-            if (existingIndex !== -1) {
-                // --- UPDATE EXISTING USER ---
-                wallets[existingIndex].startDate = dateVal;
-                activeId = wallets[existingIndex].id;
-                showToast('تم تحديث بيانات المحفظ بنجاح', 'success');
+            const wallet = wallets.find(w => String(w.id) === activeId);
+            
+            if (wallet) {
+                wallet.name = name;
+                wallet.startDate = dateVal;
+            
+                syncWallets();
+                renderWallets();
+                showToast("تم تعديل البيانات", "success");
+            }
             } else {
                 // --- CREATE NEW USER ---
                 const newWallet = {
