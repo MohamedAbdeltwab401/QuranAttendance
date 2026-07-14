@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html class="light" dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>الرسوم والملازم - مسجد الهدي النبوي</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+        darkMode: "class",
+        theme: {
+            extend: {
+                colors: {
+                    "primary": "#0B1D3A",
+                    "secondary": "#C9A23A",
+                    "surface": "#F5F6F8",
+                    "surface-container": "#FFFFFF",
+                    "on-surface": "#1a1c1c",
+                    "on-surface-variant": "#44474d",
+                    "outline-variant": "#e2e2e2",
+                    "error": "#BA1A1A",
+                    "success": "#1E7D45",
+                },
+                fontFamily: {
+                    "body-md": ["Cairo", "sans-serif"],
+                    "headline-md": ["Cairo", "sans-serif"],
+                    "label-bold": ["Cairo", "sans-serif"],
+                },
+                fontSize: {
+                    "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+                    "headline-md": ["20px", { lineHeight: "28px", fontWeight: "700" }],
+                    "label-bold": ["12px", { lineHeight: "16px", fontWeight: "700" }],
+                },
+            }
+        }
+    }
+</script>
+<style>
+    body { font-family: 'Cairo', sans-serif; }
+    .toast {
+        position: fixed;
+        bottom: 100px;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: #0B1D3A;
+        color: #fff;
+        padding: 12px 20px;
+        border-radius: 16px;
+        font-size: 14px;
+        font-weight: 600;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .25s, transform .25s;
+        max-width: 90%;
+        text-align: center;
+        z-index: 999;
+    }
+    .toast.error { background: #BA1A1A; }
+    .toast.success { background: #1E7D45; }
+    .toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    .student-item {
+        animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateX(10px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+
+    /* Custom checkbox pill */
+    .chk-pill {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        border-radius: 12px;
+        border: 1.5px solid #e2e2e2;
+        cursor: pointer;
+        user-select: none;
+        transition: border-color .15s, background-color .15s;
+        flex: 1;
+        justify-content: center;
+    }
+    .chk-pill input {
+        display: none;
+    }
+    .chk-pill .box {
+        width: 18px;
+        height: 18px;
+        border-radius: 6px;
+        border: 2px solid #44474d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: background-color .15s, border-color .15s;
+    }
+    .chk-pill .box .material-symbols-outlined {
+        font-size: 14px;
+        color: #fff;
+        display: none;
+    }
+    .chk-pill span.label {
+        font-size: 12px;
+        font-weight: 700;
+        color: #44474d;
+        white-space: nowrap;
+    }
+    .chk-pill.paid.checked {
+        border-color: #1E7D45;
+        background: rgba(30,125,69,0.08);
+    }
+    .chk-pill.paid.checked .box {
+        background: #1E7D45;
+        border-color: #1E7D45;
+    }
+    .chk-pill.paid.checked span.label { color: #1E7D45; }
+
+    .chk-pill.hadith.checked {
+        border-color: #0B1D3A;
+        background: rgba(11,29,58,0.06);
+    }
+    .chk-pill.hadith.checked .box {
+        background: #0B1D3A;
+        border-color: #0B1D3A;
+    }
+    .chk-pill.hadith.checked span.label { color: #0B1D3A; }
+
+    .chk-pill.quran.checked {
+        border-color: #C9A23A;
+        background: rgba(201,162,58,0.1);
+    }
+    .chk-pill.quran.checked .box {
+        background: #C9A23A;
+        border-color: #C9A23A;
+    }
+    .chk-pill.quran.checked span.label { color: #C9A23A; }
+
+    .chk-pill.checked .box .material-symbols-outlined { display: block; }
+</style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen pb-[80px]">
+
+<!-- Top App Bar -->
+<header class="bg-surface-container flex justify-between items-center px-4 py-3 w-full sticky top-0 z-40 shadow-sm">
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full overflow-hidden bg-outline-variant flex items-center justify-center">
+            <span class="material-symbols-outlined text-primary text-2xl">payments</span>
+        </div>
+        <div class="flex flex-col">
+            <h1 class="text-headline-md font-headline-md text-primary">الرسوم والملازم</h1>
+            <p class="text-xs text-on-surface-variant" id="walletLabel">—</p>
+        </div>
+    </div>
+    <div class="flex items-center gap-2">
+        <span class="text-xs bg-secondary/10 text-secondary px-2 py-1 rounded-full font-bold" id="countBadge">0</span>
+    </div>
+</header>
+
+<main class="p-4 max-w-md mx-auto">
+    <!-- Search Bar -->
+    <div class="relative mb-4">
+        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-on-surface-variant">
+            <span class="material-symbols-outlined">search</span>
+        </div>
+        <input id="searchInput" class="block w-full pr-10 pl-10 py-3 border-none rounded-xl bg-surface-container shadow-sm focus:ring-2 focus:ring-primary focus:outline-none text-body-md placeholder:text-on-surface-variant" placeholder="بحث عن طالب..." type="text"/>
+        <button id="clearSearch" class="absolute inset-y-0 left-0 pl-3 flex items-center text-on-surface-variant hover:text-primary hidden">
+            <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+    </div>
+
+    <!-- Summary chips -->
+    <div class="grid grid-cols-3 gap-2 mb-5">
+        <div class="bg-surface-container rounded-xl p-3 text-center shadow-sm">
+            <p class="text-lg font-bold text-success" id="paidCount">0</p>
+            <p class="text-xs text-on-surface-variant mt-0.5">دفع الرسوم</p>
+        </div>
+        <div class="bg-surface-container rounded-xl p-3 text-center shadow-sm">
+            <p class="text-lg font-bold text-primary" id="hadithCount">0</p>
+            <p class="text-xs text-on-surface-variant mt-0.5">ملزمة الحديث</p>
+        </div>
+        <div class="bg-surface-container rounded-xl p-3 text-center shadow-sm">
+            <p class="text-lg font-bold text-secondary" id="quranCount">0</p>
+            <p class="text-xs text-on-surface-variant mt-0.5">ملزمة القرآن</p>
+        </div>
+    </div>
+
+    <!-- Students List -->
+    <div id="studentsList" class="flex flex-col gap-2">
+        <!-- Dynamic content -->
+    </div>
+</main>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Bottom Nav Bar -->
+<nav class="bg-primary text-white fixed bottom-0 left-0 w-full z-40 flex justify-around items-center px-2 py-2 rounded-t-xl shadow-[0_-4px_20px_rgba(11,29,58,0.08)]">
+
+  <a class="flex flex-col items-center justify-center text-white/70 hover:text-secondary py-2 px-3" href="dashboard.html">
+      <span class="material-symbols-outlined mb-1">home</span>
+      <span class="text-label-bold font-label-bold">الرئيسية</span>
+  </a>
+  <a class="flex flex-col items-center justify-center text-white/70 hover:text-secondary py-2 px-3" href="attendance.html">
+      <span class="material-symbols-outlined mb-1">calendar_today</span>
+      <span class="text-label-bold font-label-bold">الحضور</span>
+  </a>
+  <a class="flex flex-col items-center justify-center text-white/70 hover:text-secondary py-2 px-3" href="students.html">
+      <span class="material-symbols-outlined mb-1">group</span>
+      <span class="text-label-bold font-label-bold">الطلبة</span>
+  </a>
+  <a class="flex flex-col items-center justify-center text-secondary font-bold py-2 px-3 scale-95 transition-transform duration-200" href="fees.html">
+      <span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">payments</span>
+      <span class="text-label-bold font-label-bold">الرسوم</span>
+  </a>
+    <a class="flex flex-col items-center justify-center text-white/70 hover:text-secondary py-2 px-3" href="reports.html">
+        <span class="material-symbols-outlined mb-1">analytics</span>
+        <span class="text-label-bold font-label-bold">التقارير</span>
+    </a>
+</nav>
+
+<script>
+(function () {
+    const WALLETS_KEY = 'masjid_alhadi_wallets';
+    const STUDENTS_PREFIX = 'masjid_alhadi_students_';
+    const FEES_PREFIX = 'masjid_alhadi_fees_';
+    const ACTIVE_WALLET_KEY = 'masjid_alhadi_active_wallet';
+
+    // Elements
+    const walletLabel = document.getElementById('walletLabel');
+    const countBadge = document.getElementById('countBadge');
+    const searchInput = document.getElementById('searchInput');
+    const clearSearch = document.getElementById('clearSearch');
+    const studentsList = document.getElementById('studentsList');
+    const toast = document.getElementById('toast');
+    const paidCountEl = document.getElementById('paidCount');
+    const hadithCountEl = document.getElementById('hadithCount');
+    const quranCountEl = document.getElementById('quranCount');
+
+    let currentWalletId = null;
+
+    // ---- Storage helpers ----
+    function getActiveWallet() {
+        try {
+            const wallets = JSON.parse(localStorage.getItem(WALLETS_KEY) || '[]');
+            if (wallets.length === 0) return null;
+            const activeId = localStorage.getItem(ACTIVE_WALLET_KEY);
+            if (activeId) {
+                const found = wallets.find(w => String(w.id) === String(activeId));
+                if (found) return found;
+            }
+            const last = wallets[wallets.length - 1];
+            localStorage.setItem(ACTIVE_WALLET_KEY, last.id);
+            return last;
+        } catch (e) { return null; }
+    }
+
+    function getStudents(walletId) {
+        try {
+            const raw = localStorage.getItem(STUDENTS_PREFIX + walletId);
+            return raw ? JSON.parse(raw) : [];
+        } catch (e) { return []; }
+    }
+
+    function getFees(walletId) {
+        try {
+            const raw = localStorage.getItem(FEES_PREFIX + walletId);
+            return raw ? JSON.parse(raw) : {};
+        } catch (e) { return {}; }
+    }
+
+    function saveFees(walletId, feesObj) {
+        localStorage.setItem(FEES_PREFIX + walletId, JSON.stringify(feesObj));
+    }
+
+    // ---- Toast ----
+    function showToast(message, type) {
+        toast.textContent = message;
+        toast.className = 'toast show' + (type ? ' ' + type : '');
+        setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    // ---- Escape HTML ----
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function getInitials(name) {
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) return parts[0][0] + parts[1][0];
+        return parts[0][0] || '?';
+    }
+
+    // ---- Render summary ----
+    function renderSummary() {
+        const fees = getFees(currentWalletId);
+        const values = Object.values(fees);
+        paidCountEl.textContent = values.filter(f => f.paid).length;
+        hadithCountEl.textContent = values.filter(f => f.hadith).length;
+        quranCountEl.textContent = values.filter(f => f.quran).length;
+    }
+
+    // ---- Render students ----
+    function renderStudents() {
+        if (!currentWalletId) {
+            studentsList.innerHTML = `
+                <div class="p-8 text-center bg-surface-container rounded-2xl shadow-sm">
+                    <div class="w-16 h-16 bg-error/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <span class="material-symbols-outlined text-error text-3xl">warning</span>
+                    </div>
+                    <h3 class="text-headline-md font-headline-md text-primary mb-2">لا يوجد محفظ نشط</h3>
+                    <p class="text-body-md text-on-surface-variant mb-4">يرجى تسجيل الدخول كمحفظ أولاً</p>
+                    <a href="index.html" class="inline-block bg-secondary text-white px-6 py-2 rounded-xl font-headline-md">الذهاب للتسجيل</a>
+                </div>`;
+            countBadge.textContent = '0';
+            return;
+        }
+
+        const students = getStudents(currentWalletId);
+        const fees = getFees(currentWalletId);
+        const query = searchInput.value.trim().toLowerCase();
+        const filtered = query
+            ? students.filter(s => s.name.toLowerCase().includes(query))
+            : students;
+
+        countBadge.textContent = students.length;
+        renderSummary();
+
+        if (students.length === 0) {
+            studentsList.innerHTML = `
+                <div class="p-8 text-center bg-surface-container rounded-2xl shadow-sm">
+                    <div class="w-20 h-20 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="material-symbols-outlined text-secondary text-4xl">person_add</span>
+                    </div>
+                    <h3 class="text-headline-md font-headline-md text-primary mb-2">لا يوجد طلبة بعد</h3>
+                    <p class="text-body-md text-on-surface-variant">أضف طلبة أولاً من صفحة الطلبة</p>
+                </div>`;
+            return;
+        }
+
+        if (filtered.length === 0) {
+            studentsList.innerHTML = `
+                <div class="p-8 text-center bg-surface-container rounded-2xl shadow-sm">
+                    <div class="w-16 h-16 bg-surface rounded-full flex items-center justify-center mx-auto mb-3">
+                        <span class="material-symbols-outlined text-on-surface-variant text-3xl">search_off</span>
+                    </div>
+                    <h3 class="text-headline-md font-headline-md text-primary mb-2">لا توجد نتائج</h3>
+                    <p class="text-body-md text-on-surface-variant">جرّب كلمة بحث مختلفة</p>
+                </div>`;
+            return;
+        }
+
+        studentsList.innerHTML = filtered.map(s => {
+            const f = fees[s.id] || { paid: false, hadith: false, quran: false };
+            return `
+            <div class="student-item bg-surface-container rounded-2xl shadow-sm p-4" data-id="${s.id}">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span class="text-primary font-bold text-sm">${escapeHtml(getInitials(s.name))}</span>
+                    </div>
+                    <div class="text-body-md font-semibold text-primary truncate">${escapeHtml(s.name)}</div>
+                </div>
+                <div class="flex gap-2">
+                    <label class="chk-pill paid ${f.paid ? 'checked' : ''}">
+                        <input type="checkbox" data-field="paid" ${f.paid ? 'checked' : ''}/>
+                        <span class="box"><span class="material-symbols-outlined">check</span></span>
+                        <span class="label">دفع الرسوم</span>
+                    </label>
+                    <label class="chk-pill hadith ${f.hadith ? 'checked' : ''}">
+                        <input type="checkbox" data-field="hadith" ${f.hadith ? 'checked' : ''}/>
+                        <span class="box"><span class="material-symbols-outlined">check</span></span>
+                        <span class="label">ملزمة الحديث</span>
+                    </label>
+                    <label class="chk-pill quran ${f.quran ? 'checked' : ''}">
+                        <input type="checkbox" data-field="quran" ${f.quran ? 'checked' : ''}/>
+                        <span class="box"><span class="material-symbols-outlined">check</span></span>
+                        <span class="label">ملزمة القرآن</span>
+                    </label>
+                </div>
+            </div>
+        `;
+        }).join('');
+
+        // Attach checkbox handlers
+        studentsList.querySelectorAll('.chk-pill').forEach(pill => {
+            pill.addEventListener('click', (e) => {
+                e.preventDefault();
+                const card = pill.closest('.student-item');
+                const studentId = card.getAttribute('data-id');
+                const field = pill.querySelector('input').getAttribute('data-field');
+
+                const feesObj = getFees(currentWalletId);
+                if (!feesObj[studentId]) feesObj[studentId] = { paid: false, hadith: false, quran: false };
+                feesObj[studentId][field] = !feesObj[studentId][field];
+                saveFees(currentWalletId, feesObj);
+
+                const isChecked = feesObj[studentId][field];
+                pill.classList.toggle('checked', isChecked);
+                pill.querySelector('input').checked = isChecked;
+
+                renderSummary();
+
+                const labels = { paid: 'دفع الرسوم', hadith: 'ملزمة الحديث', quran: 'ملزمة القرآن' };
+                showToast(isChecked ? `تم تسجيل: ${labels[field]}` : `تم إلغاء: ${labels[field]}`, isChecked ? 'success' : '');
+            });
+        });
+    }
+
+    // ---- Event listeners ----
+    searchInput.addEventListener('input', () => {
+        clearSearch.classList.toggle('hidden', searchInput.value.length === 0);
+        renderStudents();
+    });
+    clearSearch.addEventListener('click', () => {
+        searchInput.value = '';
+        clearSearch.classList.add('hidden');
+        renderStudents();
+    });
+
+    // ---- Init ----
+    const wallet = getActiveWallet();
+    if (wallet) {
+        currentWalletId = wallet.id;
+        walletLabel.textContent = `محفظ: ${wallet.name}`;
+    }
+    renderStudents();
+})();
+</script>
+</body>
+</html>
